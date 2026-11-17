@@ -14,7 +14,8 @@ const ROUTES = {
   notifications: () => import('./notifications.js'),
   family: () => import('./family.js'),
   events: () => import('./events.js'),
-  lists: () => import('./lists.js')
+  lists: () => import('./lists.js'),
+  excel: () => import('./excel.js')
 };
 const root = document.getElementById('app');
 
