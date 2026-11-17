@@ -67,7 +67,9 @@ async function render() {
       h('h1', {}, 'Chhipa One'),
       h('span', { class: 'muted', style: 'color:#d6efe5;font-size:13px' }, ROLE_LABEL[state.profile.role]),
       h('button', { onclick: () => sb.auth.signOut() }, 'Sign out')),
-    main);
+    main,
+    h('nav', { class: 'bnav noprint' }, [['', '🏠', 'Home'], ['registry', '👨‍👩‍👧', 'Families'], ['add', '➕', 'Add'], ['notifications', '🔔', 'Alerts']].map(([r, i, t]) =>
+      h('a', { href: '#' + r, class: route === r ? 'on' : '' }, h('span', {}, i), t))));
   try { await mod.render(main, arg); } catch (e) { main.replaceChildren(h('p', { class: 'err' }, 'Could not load this page. ' + (e.message || ''))); }
 }
 

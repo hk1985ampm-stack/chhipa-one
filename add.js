@@ -61,12 +61,16 @@ export async function render(main) {
     const addr = h('textarea', { rows: 3, placeholder: 'House no., street, area' }, S.address || '');
     const gotra = selectOther(optList('gotra'), S.gotra);
     const type = selectOther(optList('family_type'), S.family_type);
+    const taluka = h('input', { value: S.taluka || '', placeholder: 'Taluka · तालुका' });
+    const pin = h('input', { type: 'tel', inputmode: 'numeric', maxlength: 6, value: S.pincode || '', placeholder: '6-digit pincode' });
+    const house = selectOther(optList('house_type'), S.house_type);
     const phone = h('input', { type: 'tel', inputmode: 'numeric', value: S.phone || S.members[0].mobile || '', placeholder: 'Family contact number' });
-    const read = () => { S.address = addr.value.trim(); S.gotra = gotra.get(); S.family_type = type.get(); S.phone = digits(phone.value); save(); };
+    const read = () => { S.address = addr.value.trim(); S.gotra = gotra.get(); S.family_type = type.get(); S.taluka = taluka.value.trim(); S.pincode = digits(pin.value).slice(0, 6); S.house_type = house.get(); S.phone = digits(phone.value); save(); };
     auto = read;
     draw.append(h('h2', {}, hi('Family details', 'परिवार की जानकारी')), h('div', { class: 'card' },
-      field('Address · पता', addr), h('div', { class: 'row' }, field('Gotra · गोत्र', gotra.el), field('Family type · प्रकार', type.el)), field('Contact number · संपर्क', phone)),
+      field('Address · पता', addr), h('div', { class: 'row' }, field('Gotra · गोत्र', gotra.el), field('Family type · प्रकार', type.el)), h('div', { class: 'row' }, field('Taluka · तालुका', taluka), field('Pincode · पिनकोड', pin)), field('House · मकान', house.el), field('Contact number · संपर्क', phone)),
       nav(() => { read(); go(1); }, () => {
+        if (pin.value.trim() && digits(pin.value).length !== 6) return toast('Pincode must be 6 digits');
         if (phone.value.trim() && digits(phone.value).length !== 10) return toast('Contact number must be 10 digits');
         read(); go(3);
       }));
@@ -106,7 +110,7 @@ export async function render(main) {
     const btn = h('button', { class: 'btn' }, isApprover() ? 'Save & approve' : 'Submit for approval');
     btn.addEventListener('click', async () => {
       btn.disabled = true;
-      const payload = { location_id: S.location_id, address: S.address, gotra: S.gotra, family_type: S.family_type, phone: S.phone, members: S.members };
+      const payload = { location_id: S.location_id, address: S.address, gotra: S.gotra, family_type: S.family_type, phone: S.phone, taluka: S.taluka, pincode: S.pincode, house_type: S.house_type, members: S.members };
       const { data, error } = await sb.rpc('family_create', { p: payload });
       if (error) { btn.disabled = false; return toast(friendly(error)); }
       localStorage.removeItem(key());

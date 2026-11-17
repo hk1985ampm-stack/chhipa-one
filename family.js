@@ -1,6 +1,9 @@
 import { sb, h, hi, toast, friendly, pill, age, isApprover, field, ageText } from './core.js';
 import { REL_LABELS } from './options.js';
 import { memberForm, selectOther } from './memberform.js';
+import { photoUrl, pickPhoto } from './photo.js';
+import { familyCardPdf } from './pdf.js';
+const initials = n => (n || '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
 import { optList } from './core.js';
 
 const relLabel = r => REL_LABELS[r] || r;
@@ -10,7 +13,7 @@ const REASON = { married: 'Married — moved to husband’s family', divorced: '
 export async function render(main, id) {
   const [f, ms, hs] = await Promise.all([
     sb.from('families').select('*, locations(code,city,state)').eq('id', id).maybeSingle(),
-    sb.from('family_memberships').select('id,relation,is_active,end_date,reason,created_at, members(id,member_code,full_name,father_name,gender,dob,birth_year_est,status,education,occupation,marital_status,record_state, member_contacts(mobile))').eq('family_id', id),
+    sb.from('family_memberships').select('id,relation,is_active,end_date,reason,created_at, members(id,member_code,full_name,father_name,gender,dob,birth_year_est,photo_path,status,education,occupation,marital_status,record_state, member_contacts(mobile))').eq('family_id', id),
     sb.from('family_history').select('*').eq('family_id', id).order('created_at', { ascending: false })]);
   if (f.error || ms.error) throw (f.error || ms.error);
   if (!f.data) return main.append(h('p', { class: 'err' }, 'Family not found, or you do not have access.'));
@@ -123,8 +126,9 @@ export async function render(main, id) {
   // ---- edit details / add member (admins)
   function editFam() {
     const a = h('textarea', { rows: 3 }, fam.address || ''), g = selectOther(optList('gotra'), fam.gotra), p = h('input', { type: 'tel', value: fam.phone || '' }), t = selectOther(optList('family_type'), fam.family_type);
-    card('Edit details', field('Address', a), field('Gotra · गोत्र', g.el), field('Family type', t.el), field('Contact number', p), bar(sub('Save', async () => {
-      const { data, error } = await sb.from('families').update({ address: a.value.trim() || null, gotra: g.get() || null, family_type: t.get() || null, phone: p.value.trim() || null }).eq('id', id).eq('version', fam.version).select('id');
+    const tl = h('input', { value: fam.taluka || '' }), pn = h('input', { type: 'tel', maxlength: 6, value: fam.pincode || '' }), hs2 = selectOther(optList('house_type'), fam.house_type), qt = h('input', { value: fam.quote || '', placeholder: 'Together We Build a Stronger Community' });
+    card('Edit details', field('Address', a), field('Gotra · गोत्र', g.el), field('Family type', t.el), h('div', { class: 'row' }, field('Taluka', tl), field('Pincode', pn)), field('House', hs2.el), field('Card footer quote', qt), field('Contact number', p), bar(sub('Save', async () => {
+      const { data, error } = await sb.from('families').update({ address: a.value.trim() || null, gotra: g.get() || null, family_type: t.get() || null, phone: p.value.trim() || null, taluka: tl.value.trim() || null, pincode: pn.value.trim() || null, house_type: hs2.get() || null, quote: qt.value.trim() || null }).eq('id', id).eq('version', fam.version).select('id');
       if (error) return toast(friendly(error));
       if (!data.length) { toast('Someone else changed this family just now. Showing the latest version.'); return reload(); }
       toast('Saved'); reload(); })));
@@ -167,13 +171,30 @@ export async function render(main, id) {
       divorced_returned: `${n} returned to this family after divorce`, separated_returned: `${n} returned to this family after separation`, death: `${n} passed away`,
       head_change: `Family head changed to ${names[d.new] || n}${d.reason ? ' (' + d.reason + ')' : ''}`, branch_created: `${n} started a separate household ${d.new_code || ''}`, branch_origin: `${n}'s household began from family ${d.parent_code || ''}` })[x.event] || x.event; };
 
+  const hm = headRow && headRow.members;
+  const hmobile = hm ? mobile(hm) : '';
+  const photoBox = h('div', { class: 'ph' }, hm ? initials(hm.full_name) : '?');
+  if (hm && hm.photo_path) photoUrl(hm.photo_path).then(u => { if (u) photoBox.replaceChildren(h('img', { src: u, alt: '' })); });
+  const heroCard = () => h('div', { class: 'hero' },
+    h('div', { class: 'hero-top' }, h('div', { class: 'ph-wrap' }, photoBox, hm ? h('button', { class: 'ph-btn noprint', title: 'Change photo', onclick: () => pickPhoto(hm.id, reload) }, '📷') : null),
+      h('div', { class: 'hero-txt' }, h('h2', {}, hm ? hm.full_name : 'Family'), h('div', { class: 'hero-id' }, fam.family_code || 'ID on approval', ' ', pill(fam.status)),
+        h('div', {}, '📍 ', [fam.locations.city, fam.taluka, fam.locations.state].filter(Boolean).join(', ')), fam.address ? h('div', {}, '🏠 ', fam.address) : null,
+        fam.gotra ? h('span', { class: 'gotra' }, '✦ Gotra: ' + fam.gotra) : null)),
+    h('div', { class: 'hero-btns' },
+      hmobile ? h('a', { class: 'hb call', href: 'tel:' + hmobile }, h('b', {}, '📞 Call'), h('span', {}, hmobile)) : h('div', { class: 'hb off' }, h('b', {}, '📞 Call'), h('span', {}, 'No number')),
+      hmobile ? h('a', { class: 'hb wa', target: '_blank', rel: 'noopener', href: 'https://wa.me/91' + hmobile }, h('b', {}, '💬 WhatsApp'), h('span', {}, 'Send message')) : h('div', { class: 'hb off' }, h('b', {}, '💬 WhatsApp'), h('span', {}, 'No number')),
+      h('button', { class: 'hb pdf', onclick: async e => { const b = e.currentTarget; b.disabled = true; try { await familyCardPdf(fam, rows.filter(live)); } catch (x) { toast(friendly(x)); } b.disabled = false; } }, h('b', {}, '📄 PDF'), h('span', {}, 'Download card'))),
+    h('div', { class: 'hero-links noprint' }, h('a', { href: '#registry' }, '← Registry'), h('a', { href: '#card/' + id }, '🖨 View / Print')));
+  const tile = (k, v) => h('div', { class: 'it' }, h('span', {}, k), h('b', {}, v || '—'));
+  const infoGrid = () => h('div', { class: 'card' }, h('h3', { style: 'margin-top:0' }, 'Family Information'),
+    h('div', { class: 'igrid' }, tile('Family ID', fam.family_code), tile('Head of family', hm && hm.full_name), tile('Mobile', hmobile || fam.phone), tile('Gotra', fam.gotra),
+      tile('State', fam.locations.state), tile('City', fam.locations.city), tile('Taluka', fam.taluka), tile('Pincode', fam.pincode), tile('House', fam.house_type), tile('Family type', fam.family_type),
+      tile('Active members', String(active) + ' of ' + rows.length), fam.quote ? tile('Footer quote', fam.quote) : null, h('div', { class: 'it wide' }, h('span', {}, 'Address'), h('b', {}, fam.address || '—'))));
+
   main.append(...[
-    h('div', { class: 'actions noprint' }, h('a', { class: 'btn alt', href: '#registry' }, '← Registry'), h('a', { class: 'btn', href: '#card/' + id }, '🖨 View / Print')),
-    h('div', { class: 'card' }, h('div', { class: 'item' }, h('h2', { style: 'margin:0' }, fam.family_code || 'Family ID on approval'), pill(fam.status)),
-      h('div', {}, fam.locations.city, ', ', fam.locations.state), fam.address ? h('div', {}, fam.address) : null,
-      h('div', { class: 'muted' }, [fam.gotra && 'Gotra ' + fam.gotra, fam.family_type, fam.phone].filter(Boolean).join(' · ')),
-      h('div', { style: 'margin-top:8px' }, h('b', {}, 'Active members: ', active), ' of ', rows.length, ' on record'),
-      canEdit ? h('p', {}, h('button', { class: 'btn alt', onclick: editFam }, 'Edit details'), ' ', h('button', { class: 'btn', onclick: addMember }, '+ Add member'), ' ', h('button', { class: 'btn alt', onclick: headForm }, 'Change head')) : null),
+    heroCard(),
+    infoGrid(),
+    canEdit ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn alt', onclick: editFam }, 'Edit details'), h('button', { class: 'btn', onclick: addMember }, '+ Add member'), h('button', { class: 'btn alt', onclick: headForm }, 'Change head')) : null,
     headGone ? h('div', { class: 'card dupwarn' }, h('b', {}, 'The family head has passed away.'), h('p', { class: 'muted' }, 'Choose the new head (the wife is suggested).'), h('button', { class: 'btn', onclick: headForm }, 'Choose new head')) : null,
     actions, box,
     h('h3', {}, 'Members · सदस्य'),

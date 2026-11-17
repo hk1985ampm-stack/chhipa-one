@@ -1,6 +1,6 @@
 import { sb, h, hi, toast, friendly, loadOptions } from './core.js';
 
-const LISTS = [['gotra', 'Gotra · गोत्र'], ['education', 'Education · शिक्षा'], ['occupation', 'Occupation · व्यवसाय'], ['family_type', 'Family type · प्रकार']];
+const LISTS = [['gotra', 'Gotra · गोत्र'], ['education', 'Education · शिक्षा'], ['occupation', 'Occupation · व्यवसाय'], ['family_type', 'Family type · प्रकार'], ['house_type', 'House · मकान']];
 
 export async function render(main) {
   let key = 'gotra';

@@ -10,4 +10,4 @@ export const MARITAL = [['Unmarried', 'Unmarried', 'अविवाहित'], 
 export const EDUCATION = ['Illiterate', 'Primary (1-5)', 'Middle (6-8)', '10th', '12th', 'Diploma / ITI', 'Graduate', 'Post-graduate', 'Professional (Engg/Medical/CA etc.)', 'Other'];
 export const OCCUPATIONS = ['Student', 'Business', 'Service', 'Farmer', 'Labour', 'Housewife', 'Retired', 'Professional', 'Unemployed', 'Other'];
 export const DEFAULTS = { gotra: ['Taak', 'Bhati (Bhatee)', 'Chauhan', 'Deora (Doera)', 'Rao', 'Panwar', 'Molani', 'Kukda', 'Sonawa', 'Mandawara', 'Gohil (Gahlot)', 'Bhavsar', 'Dilwari', 'Rangara'],
-  education: EDUCATION.slice(0, -1), occupation: OCCUPATIONS.slice(0, -1), family_type: ['Joint', 'Nuclear'] };
+  education: EDUCATION.slice(0, -1), occupation: OCCUPATIONS.slice(0, -1), family_type: ['Joint', 'Nuclear'], house_type: ['Own House', 'Rented', 'Joint / Ancestral'] };
