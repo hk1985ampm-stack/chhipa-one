@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { sb, h, hi, state, toast, ROLE_LABEL } from './core.js';
+import { sb, h, hi, state, toast, ROLE_LABEL, loadOptions } from './core.js';
 
 const ROUTES = {
   '': () => import('./home.js'),
@@ -8,7 +8,9 @@ const ROUTES = {
   audit: () => import('./audit.js'),
   registry: () => import('./registry.js'),
   add: () => import('./add.js'),
-  family: () => import('./family.js')
+  family: () => import('./family.js'),
+  events: () => import('./events.js'),
+  lists: () => import('./lists.js')
 };
 const root = document.getElementById('app');
 
@@ -73,9 +75,16 @@ async function boot(session) {
   const { data, error } = await sb.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
   if (error || !data) return blockedView('Your login is not yet activated. Please ask the Super Admin to add you as staff.');
   if (data.status !== 'active') return blockedView('Your account is ' + data.status + '. Please contact the Super Admin.');
-  state.profile = data; armIdle(); render();
+  state.profile = data; armIdle(); await loadOptions(); render();
 }
 
-sb.auth.onAuthStateChange((ev, session) => { if (ev !== 'TOKEN_REFRESHED') boot(session); });
+// Switching browser tabs makes Supabase re-announce the same session. Only react when the user really changes
+// (sign-in or sign-out) so a half-filled form is never thrown away.
+let curUid;   // undefined until the first auth event, so the first event always renders
+sb.auth.onAuthStateChange((ev, session) => {
+  const uid = session ? session.user.id : null;
+  if (uid === curUid) return;
+  curUid = uid; boot(session);
+});
 addEventListener('hashchange', () => state.profile && render());
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

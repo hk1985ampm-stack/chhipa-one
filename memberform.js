@@ -1,38 +1,82 @@
-import { h, digits } from './core.js';
-import { RELATIONS, GENDERS, MARITAL, EDUCATION, OCCUPATIONS } from './options.js';
+import { h, digits, optList } from './core.js';
+import { RELATIONS, GENDERS, MARITAL } from './options.js';
 
 const opt = (list, sel) => list.map(r => h('option', { value: r[0], selected: r[0] === sel }, `${r[1]} · ${r[2]}`));
 const fld = (l, el) => h('div', {}, h('label', {}, l), el);
 
-// Reusable member form. Returns { el, read(), validate() }.
-export function memberForm(init = {}, { fixedRelation = null } = {}) {
+// Dropdown from a managed list plus "Other (type)". A value no longer in the list (deactivated) is kept as typed text.
+export function selectOther(values, current) {
+  const known = !current || values.includes(current);
+  const sel = h('select', {}, h('option', { value: '' }, 'Select · चुनें'), values.map(v => h('option', { selected: v === current }, v)),
+    h('option', { value: '__other', selected: !known }, 'Other (type) · अन्य'));
+  const txt = h('input', { value: known ? '' : current, placeholder: 'Type here · यहाँ लिखें', style: 'margin-top:6px', hidden: known });
+  sel.addEventListener('change', () => { txt.hidden = sel.value !== '__other'; if (!txt.hidden) txt.focus(); });
+  return { el: h('div', {}, sel, txt), get: () => (sel.value === '__other' ? txt.value.trim() : sel.value) };
+}
+
+const GENDER_OF = { son: 'male', daughter: 'female', grandson: 'male', granddaughter: 'female', father: 'male', mother: 'female',
+  brother: 'male', sister: 'female', 'daughter-in-law': 'female', 'son-in-law': 'male' };
+const MARRIED = ['spouse', 'daughter-in-law', 'son-in-law'], KIDS = ['son', 'daughter', 'grandson', 'granddaughter'];
+
+// ctx = { head:{name,gender,father_name}, spouse:{name}, people:[{v,label,relation,gender}] } lets the form fill itself from the relation.
+export function memberForm(init = {}, { fixedRelation = null, ctx = null } = {}) {
   const v = k => init[k] || '';
+  const touched = new Set();
   const name = h('input', { value: v('name'), placeholder: 'Full name · पूरा नाम' });
   const rel = h('select', { disabled: !!fixedRelation },
     fixedRelation ? null : h('option', { value: '' }, 'Select · चुनें'),
-    RELATIONS.filter(r => fixedRelation ? r[0] === fixedRelation : r[0] !== 'head').map(r => h('option', { value: r[0], selected: r[0] === (fixedRelation || init.relation) }, `${r[1]} · ${r[2]}`)));
+    RELATIONS.filter(r => fixedRelation ? r[0] === fixedRelation : r[0] !== 'head')
+      .map(r => h('option', { value: r[0], selected: r[0] === (fixedRelation || init.relation) }, `${r[1]} · ${r[2]}`)));
   const gender = h('select', {}, h('option', { value: '' }, 'Select · चुनें'), opt(GENDERS, v('gender')));
   const dob = h('input', { type: 'date', value: v('dob'), max: new Date().toISOString().slice(0, 10) });
   const father = h('input', { value: v('father_name'), placeholder: "Father's name · पिता का नाम" });
   const mobile = h('input', { type: 'tel', inputmode: 'numeric', value: v('mobile'), placeholder: '10-digit mobile' });
-  const edu = h('select', {}, h('option', { value: '' }, 'Select · चुनें'), EDUCATION.map(e => h('option', { selected: e === v('education') }, e)));
-  const dl = 'occ' + Math.random().toString(36).slice(2, 7);
-  const occ = h('input', { value: v('occupation'), list: dl, placeholder: 'Occupation · व्यवसाय' });
+  const edu = selectOther(optList('education'), v('education'));
+  const occ = selectOther(optList('occupation'), v('occupation'));
   const mar = h('select', {}, h('option', { value: '' }, 'Select · चुनें'), opt(MARITAL, v('marital_status')));
   const mother = h('input', { value: v('mother_name'), placeholder: "Mother's name" });
   const wa = h('input', { type: 'tel', inputmode: 'numeric', value: v('whatsapp'), placeholder: 'WhatsApp number' });
   const email = h('input', { type: 'email', value: v('email'), placeholder: 'Email' });
+  const mto = h('select'); const mtoWrap = h('div', { hidden: true }, h('label', {}, 'Married to · पति/पत्नी'), mto);
+  const tr = { gender, father, mother, mar, dob, name };
+  Object.entries(tr).forEach(([k, el]) => el.addEventListener('input', () => touched.add(k)));
+
+  const drawMto = (r, preset) => {
+    const people = (ctx && ctx.people) || [];
+    const c = r === 'spouse' ? people.filter(p => p.relation === 'head')
+      : r === 'daughter-in-law' ? people.filter(p => p.gender === 'male' && ['son', 'grandson', 'brother'].includes(p.relation))
+      : r === 'son-in-law' ? people.filter(p => p.gender === 'female' && ['daughter', 'granddaughter', 'sister'].includes(p.relation)) : [];
+    mtoWrap.hidden = !MARRIED.includes(r) || !c.length;
+    mto.replaceChildren(h('option', { value: '' }, 'Select · चुनें'), c.map(p => h('option', { value: p.v, selected: p.v === preset }, p.label)));
+    if (!preset && c.length === 1) mto.value = c[0].v;
+  };
+  const autofill = () => {
+    const r = rel.value; if (!r) return;
+    const set = (k, el, val) => { if (val && !touched.has(k)) el.value = val; };
+    let g = GENDER_OF[r];
+    if (r === 'spouse' && ctx && ctx.head && ctx.head.gender) g = ctx.head.gender === 'male' ? 'female' : ctx.head.gender === 'female' ? 'male' : null;
+    set('gender', gender, g);
+    if (MARRIED.includes(r)) set('mar', mar, 'Married'); else if (KIDS.includes(r)) set('mar', mar, 'Unmarried');
+    if (ctx && ctx.head && (r === 'son' || r === 'daughter')) {
+      if (ctx.head.gender === 'male') { set('father', father, ctx.head.name); if (ctx.spouse) set('mother', mother, ctx.spouse.name); }
+      else if (ctx.head.gender === 'female') set('mother', mother, ctx.head.name);
+    }
+    if (ctx && ctx.head && (r === 'brother' || r === 'sister')) set('father', father, ctx.head.father_name);
+    drawMto(r);
+  };
+  rel.addEventListener('change', autofill);
+  if (init.relation) { drawMto(init.relation, init.spouse_of); if (!init.name) autofill(); }
+
   const el = h('div', {},
-    fld('Name · नाम *', name), h('div', { class: 'row' }, fld('Relation · संबंध *', rel), fld('Gender · लिंग *', gender)),
+    fld('Name · नाम *', name), h('div', { class: 'row' }, fld('Relation · संबंध *', rel), fld('Gender · लिंग *', gender)), mtoWrap,
     h('div', { class: 'row' }, fld('Date of birth · जन्म तिथि', dob), fld('Mobile · मोबाइल', mobile)),
     fld("Father's name · पिता का नाम", father),
-    h('div', { class: 'row' }, fld('Education · शिक्षा', edu), fld('Occupation · व्यवसाय', occ)),
-    h('datalist', { id: dl }, OCCUPATIONS.map(o => h('option', { value: o }))),
+    h('div', { class: 'row' }, fld('Education · शिक्षा', edu.el), fld('Occupation · व्यवसाय', occ.el)),
     fld('Marital status · वैवाहिक स्थिति', mar),
     h('details', {}, h('summary', { class: 'muted' }, 'More details · और जानकारी'), fld("Mother's name", mother), fld('WhatsApp', wa), fld('Email', email)));
   const read = () => ({ name: name.value.trim(), relation: fixedRelation || rel.value, gender: gender.value, dob: dob.value, father_name: father.value.trim(),
-    mobile: digits(mobile.value), education: edu.value, occupation: occ.value.trim(), marital_status: mar.value,
-    mother_name: mother.value.trim(), whatsapp: digits(wa.value), email: email.value.trim() });
+    mobile: digits(mobile.value), education: edu.get(), occupation: occ.get(), marital_status: mar.value,
+    mother_name: mother.value.trim(), whatsapp: digits(wa.value), email: email.value.trim(), spouse_of: mtoWrap.hidden ? '' : mto.value });
   const validate = () => {
     const m = read();
     if (!m.name) return 'Please enter the name';

@@ -29,7 +29,8 @@ export const friendly = e => (e && e.message) ? e.message.replace(/^.*?:\s*(?=No
 export const ROLE_LABEL = {
   super_admin: 'Super Admin', state_admin: 'State Admin', location_admin: 'Location Admin', agent: 'Agent'
 };
-export const state = { profile: null };
+import { DEFAULTS } from './options.js';
+export const state = { profile: null, opts: {} };
 
 // ---- Phase 2 helpers
 export const digits = s => (s || '').replace(/\D/g, '').slice(-10);
@@ -50,3 +51,16 @@ export async function myLocations() {
   const { data } = await sb.from('user_locations').select('locations(id,code,city)').eq('user_id', state.profile.user_id);
   return (data || []).map(x => x.locations).filter(Boolean);
 }
+
+// Managed dropdown lists (Super Admin edits them). Cached so forms still work offline.
+export async function loadOptions() {
+  try {
+    const { data, error } = await sb.from('options').select('list_key,value,sort').eq('active', true).order('sort');
+    if (!error && data) {
+      const o = {}; data.forEach(r => (o[r.list_key] = o[r.list_key] || []).push(r.value));
+      state.opts = o; localStorage.setItem('chhipa_opts', JSON.stringify(o)); return;
+    }
+  } catch {}
+  try { state.opts = JSON.parse(localStorage.getItem('chhipa_opts')) || {}; } catch { state.opts = {}; }
+}
+export const optList = k => (state.opts[k] && state.opts[k].length ? state.opts[k] : DEFAULTS[k] || []);

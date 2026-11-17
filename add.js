@@ -1,10 +1,10 @@
-import { sb, h, hi, toast, friendly, state, digits, myLocations, isApprover, field } from './core.js';
-import { FAMILY_TYPES, RELATIONS } from './options.js';
-import { memberForm } from './memberform.js';
+import { sb, h, hi, toast, friendly, state, digits, myLocations, isApprover, field, optList } from './core.js';
+import { REL_LABELS } from './options.js';
+import { memberForm, selectOther } from './memberform.js';
 
 const key = () => 'chhipa_family_draft_' + state.profile.user_id;
 const blank = () => ({ step: 1, location_id: '', address: '', gotra: '', family_type: '', phone: '', members: [{ relation: 'head' }] });
-const relLabel = r => (RELATIONS.find(x => x[0] === r) || [r, r])[1];
+const relLabel = r => REL_LABELS[r] || r;
 
 export async function render(main) {
   const locs = await myLocations();
@@ -13,6 +13,8 @@ export async function render(main) {
   try { S = JSON.parse(localStorage.getItem(key())); } catch {}
   const save = () => localStorage.setItem(key(), JSON.stringify(S));
   const draw = h('div');
+  let auto = null;   // saves the current step on every keystroke, so nothing typed is ever lost
+  draw.addEventListener('input', () => auto && auto()); draw.addEventListener('change', () => auto && auto());
   const go = n => { S.step = n; save(); step(); window.scrollTo(0, 0); };
 
   function steps() {
@@ -24,7 +26,7 @@ export async function render(main) {
     h('button', { class: 'btn', onclick: next }, nextLabel));
 
   function step() {
-    draw.replaceChildren(steps());
+    auto = null; draw.replaceChildren(steps());
     [null, s1, s2, s3, s4][S.step]();
   }
 
@@ -35,6 +37,7 @@ export async function render(main) {
     if (locs.length === 1) S.location_id = locs[0].id;
     const f = memberForm(S.members[0], { fixedRelation: 'head' });
     const warn = h('div');
+    auto = () => { S.location_id = loc.value || S.location_id; S.members[0] = f.read(); save(); };
     const next = async () => {
       const e = !loc.value && !S.location_id ? 'Please select the location' : f.validate();
       if (e) return toast(e);
@@ -56,12 +59,13 @@ export async function render(main) {
   // ---- Step 2: family details
   function s2() {
     const addr = h('textarea', { rows: 3, placeholder: 'House no., street, area' }, S.address || '');
-    const gotra = h('input', { value: S.gotra || '', placeholder: 'Gotra · गोत्र' });
-    const type = h('select', {}, h('option', { value: '' }, 'Select · चुनें'), FAMILY_TYPES.map(t => h('option', { value: t[0], selected: t[0] === S.family_type }, `${t[1]} · ${t[2]}`)));
+    const gotra = selectOther(optList('gotra'), S.gotra);
+    const type = selectOther(optList('family_type'), S.family_type);
     const phone = h('input', { type: 'tel', inputmode: 'numeric', value: S.phone || S.members[0].mobile || '', placeholder: 'Family contact number' });
-    const read = () => { S.address = addr.value.trim(); S.gotra = gotra.value.trim(); S.family_type = type.value; S.phone = digits(phone.value); save(); };
+    const read = () => { S.address = addr.value.trim(); S.gotra = gotra.get(); S.family_type = type.get(); S.phone = digits(phone.value); save(); };
+    auto = read;
     draw.append(h('h2', {}, hi('Family details', 'परिवार की जानकारी')), h('div', { class: 'card' },
-      field('Address · पता', addr), h('div', { class: 'row' }, field('Gotra · गोत्र', gotra), field('Family type · प्रकार', type)), field('Contact number · संपर्क', phone)),
+      field('Address · पता', addr), h('div', { class: 'row' }, field('Gotra · गोत्र', gotra.el), field('Family type · प्रकार', type.el)), field('Contact number · संपर्क', phone)),
       nav(() => { read(); go(1); }, () => {
         if (phone.value.trim() && digits(phone.value).length !== 10) return toast('Contact number must be 10 digits');
         read(); go(3);
@@ -74,9 +78,13 @@ export async function render(main) {
     const drawList = () => list.replaceChildren(...S.members.slice(1).map((m, i) => h('div', { class: 'card mem' },
       h('div', { class: 'item' }, h('span', {}, h('b', {}, m.name), ' · ', relLabel(m.relation)),
         h('span', {}, h('button', { class: 'btn alt', style: 'min-height:40px', onclick: () => edit(i + 1) }, 'Edit'), ' ',
-          h('button', { class: 'btn bad', style: 'min-height:40px', onclick: () => { if (confirm('Remove ' + m.name + '?')) { S.members.splice(i + 1, 1); save(); drawList(); } } }, 'Remove'))))));
+          h('button', { class: 'btn bad', style: 'min-height:40px', onclick: () => { if (confirm('Remove ' + m.name + '?')) { const r = i + 1; S.members.splice(r, 1); S.members.forEach(x => { if (x.spouse_of !== '' && x.spouse_of != null) { const k = +x.spouse_of; x.spouse_of = k === r ? '' : k > r ? String(k - 1) : x.spouse_of; } }); save(); drawList(); } } }, 'Remove'))))));
+    const ctxOf = skip => { const hd = S.members[0], sp = S.members.find(m => m.relation === 'spouse');
+      return { head: { name: hd.name, gender: hd.gender, father_name: hd.father_name }, spouse: sp && { name: sp.name },
+        people: S.members.map((m, i) => ({ v: String(i), label: m.name, relation: m.relation, gender: m.gender })).filter(p => p.v !== String(skip)) }; };
     const edit = idx => {
-      const f = memberForm(idx ? S.members[idx] : {});
+      const first = !idx && !S.members.some(m => m.relation === 'spouse') ? { relation: 'spouse' } : {};
+      const f = memberForm(idx ? S.members[idx] : first, { ctx: ctxOf(idx || -1) });
       formBox.replaceChildren(h('div', { class: 'card' }, h('h3', {}, idx ? 'Edit member' : 'Add member · सदस्य जोड़ें'), f.el,
         h('div', { class: 'actions' }, h('button', { class: 'btn alt', onclick: () => formBox.replaceChildren() }, 'Cancel'),
           h('button', { class: 'btn', onclick: () => {

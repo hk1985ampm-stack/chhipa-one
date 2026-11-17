@@ -14,7 +14,9 @@ export async function render(main) {
       tile('#registry', 'Family Registry', 'परिवार रजिस्टर'),
       tile('#add', 'Add Family', 'परिवार जोड़ें'),
       ['super_admin', 'location_admin'].includes(p.role) ? tile('#registry/pending', 'Pending Approvals', 'लंबित स्वीकृति') : null,
+      tile('#events', 'Life Events', 'जीवन घटनाएँ'),
       sup ? tile('#locations', 'Locations', 'स्थान') : null,
+      sup ? tile('#lists', 'Dropdown Lists', 'ड्रॉपडाउन सूची') : null,
       sup ? tile('#staff', 'Staff & Agents', 'स्टाफ / एजेंट') : null,
       sup ? tile('#audit', 'Audit Log', 'ऑडिट लॉग') : null));
 }

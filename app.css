@@ -43,3 +43,4 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;p
 a.fam{display:block;text-decoration:none;color:var(--tx)}
 .mem .item{padding:0 0 4px;border:0}
 summary{min-height:44px;display:flex;align-items:center;cursor:pointer}
+.evsel{margin-top:8px;min-height:44px;font-weight:600;color:var(--g);border-color:var(--g)}
