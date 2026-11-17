@@ -1,0 +1,78 @@
+import { CONFIG } from './config.js';
+import { sb, h, hi, state, toast, ROLE_LABEL } from './core.js';
+
+const ROUTES = {
+  '': () => import('./pages/home.js'),
+  locations: () => import('./pages/locations.js'),
+  staff: () => import('./pages/staff.js'),
+  audit: () => import('./pages/audit.js')
+};
+const root = document.getElementById('app');
+
+// ---- offline badge
+const net = document.getElementById('net');
+const netUpdate = () => (net.hidden = navigator.onLine);
+addEventListener('online', netUpdate); addEventListener('offline', netUpdate); netUpdate();
+
+// ---- idle auto sign-out
+let idleT;
+function armIdle() {
+  clearTimeout(idleT);
+  idleT = setTimeout(async () => { await sb.auth.signOut(); toast('Signed out after inactivity'); }, CONFIG.idleMinutes * 60000);
+}
+['click', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, () => state.profile && armIdle(), { passive: true }));
+
+// ---- login
+function loginView() {
+  const email = h('input', { type: 'email', autocomplete: 'username', placeholder: 'name@example.com' });
+  const pass = h('input', { type: 'password', autocomplete: 'current-password' });
+  const err = h('div', { class: 'err' });
+  const btn = h('button', { class: 'btn', style: 'width:100%;margin-top:16px' }, 'Sign in · लॉगिन');
+  const go = async e => {
+    e.preventDefault(); err.textContent = ''; btn.disabled = true;
+    const { error } = await sb.auth.signInWithPassword({ email: email.value.trim(), password: pass.value });
+    btn.disabled = false;
+    if (error) err.textContent = /rate|too many/i.test(error.message)
+      ? 'Too many attempts. Please wait a few minutes.' : 'Email or password is incorrect.';
+  };
+  root.replaceChildren(h('div', { class: 'login' },
+    h('h1', {}, 'Chhipa One'), h('p', { class: 'muted' }, 'Chhipa Jamat Barar Welfare Society'),
+    h('form', { class: 'card', onsubmit: go },
+      h('label', {}, hi('Email', 'ईमेल')), email,
+      h('label', {}, hi('Password', 'पासवर्ड')), pass, err, btn)));
+}
+
+function blockedView(msg) {
+  root.replaceChildren(h('div', { class: 'login' }, h('h1', {}, 'Chhipa One'),
+    h('div', { class: 'card' }, h('p', {}, msg),
+      h('button', { class: 'btn alt', onclick: () => sb.auth.signOut() }, 'Sign out'))));
+}
+
+// ---- shell + router
+async function render() {
+  const route = location.hash.replace(/^#\/?/, '');
+  const loader = ROUTES[route] || ROUTES[''];
+  const mod = await loader();
+  const main = h('main');
+  root.replaceChildren(
+    h('header', { class: 'bar' },
+      route ? h('button', { onclick: () => (location.hash = '') }, '← Home') : null,
+      h('h1', {}, 'Chhipa One'),
+      h('span', { class: 'muted', style: 'color:#d6efe5;font-size:13px' }, ROLE_LABEL[state.profile.role]),
+      h('button', { onclick: () => sb.auth.signOut() }, 'Sign out')),
+    main);
+  try { await mod.render(main); } catch (e) { main.replaceChildren(h('p', { class: 'err' }, 'Could not load this page. ' + (e.message || ''))); }
+}
+
+async function boot(session) {
+  state.profile = null;
+  if (!session) return loginView();
+  const { data, error } = await sb.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
+  if (error || !data) return blockedView('Your login is not yet activated. Please ask the Super Admin to add you as staff.');
+  if (data.status !== 'active') return blockedView('Your account is ' + data.status + '. Please contact the Super Admin.');
+  state.profile = data; armIdle(); render();
+}
+
+sb.auth.onAuthStateChange((ev, session) => { if (ev !== 'TOKEN_REFRESHED') boot(session); });
+addEventListener('hashchange', () => state.profile && render());
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

@@ -1,0 +1,19 @@
+import { h, hi, state } from '../core.js';
+
+const tile = (href, en, hindi, soon) =>
+  h(soon ? 'div' : 'a', { class: 'tile' + (soon ? ' soon' : ''), href: soon ? null : href },
+    h('span', {}, en), h('span', { class: 'hi' }, hindi), soon ? h('span', { class: 'tag' }, 'Coming in Phase ' + soon) : null);
+
+export async function render(main) {
+  const p = state.profile, sup = p.role === 'super_admin';
+  main.append(
+    h('h2', {}, 'Welcome, ' + p.full_name),
+    h('div', { class: 'card' }, h('input', { type: 'search', placeholder: 'Search name, Family ID, Member ID, mobile… · खोजें', disabled: true }),
+      h('div', { class: 'muted', style: 'margin-top:6px;font-size:14px' }, 'Search will work once the Family Registry is added (Phase 2).')),
+    h('div', { class: 'grid' },
+      tile('#registry', 'Family Registry', 'परिवार रजिस्टर', 2),
+      tile('#add', 'Add Family', 'परिवार जोड़ें', 2),
+      sup ? tile('#locations', 'Locations', 'स्थान') : null,
+      sup ? tile('#staff', 'Staff & Agents', 'स्टाफ / एजेंट') : null,
+      sup ? tile('#audit', 'Audit Log', 'ऑडिट लॉग') : null));
+}
