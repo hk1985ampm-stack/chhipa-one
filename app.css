@@ -119,3 +119,10 @@ main .backlink a{color:var(--g);font-weight:600;text-decoration:none}.backlink{m
 
 .obx{top:auto;bottom:72px;position:fixed;left:12px;right:12px;border-radius:12px;cursor:pointer;background:#0b5d9e}
 .offl{background:#fff7e0;border-color:#e7c15a;font-weight:600}
+
+.mem-top{display:flex;gap:12px;align-items:flex-start}.mem-txt{flex:1;min-width:0}
+.ph.sm{width:52px;height:62px;border-width:2px;border-radius:10px;font-size:18px;flex:none}
+.mem-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.btn.alt.bad{color:var(--bad);border-color:var(--bad)}.btn.sm.bad{background:var(--bad);color:#fff}
+.photo-row{display:flex;gap:12px;align-items:center;margin:6px 0 4px}
+.obx{z-index:16}

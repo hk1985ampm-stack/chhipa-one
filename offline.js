@@ -1,4 +1,5 @@
 import { sb, toast } from './core.js';
+import { uploadPhotos } from './photo.js';
 
 // ---- tiny IndexedDB key/value store (bigger than localStorage; survives restarts)
 let dbp;
@@ -27,8 +28,10 @@ export async function flush(quiet) {
   try {
     let l = await outbox();
     while (l.length) {
-      const { error } = await sb.rpc('family_create', { p: l[0].payload });
+      const { _photos, ...pl } = l[0].payload;
+      const { data, error } = await sb.rpc('family_create', { p: pl });
       if (error) { if (isNetErr(error)) break; l[0].error = error.message; l.push(l.shift()); if (l.every(x => x.error)) break; continue; }
+      if (_photos && _photos.length && data && data.member_ids) await uploadPhotos(data.member_ids, _photos);
       l.shift(); sent++; await kvSet(OB, l);
     }
     await kvSet(OB, l);

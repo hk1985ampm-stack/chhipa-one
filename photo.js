@@ -9,7 +9,7 @@ export async function photoUrl(path) {
 }
 
 // Resize to ~300x360 JPEG (about 30-40 KB) so thousands of photos fit in the free storage.
-function shrink(file) {
+export function shrink(file) {
   return new Promise((res, rej) => {
     const img = new Image(); img.onload = () => {
       const W = 300, H = 360, c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -34,4 +34,17 @@ export function pickPhoto(memberId, done) {
     } catch (e) { toast(friendly(e)); }
   };
   inp.click();
+}
+
+export const blobToDataUrl = b => new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.readAsDataURL(b); });
+// photos = [{ index, data }] keyed by position in the family just created
+export async function uploadPhotos(memberIds, photos) {
+  for (const ph of photos || []) {
+    const id = memberIds && memberIds[ph.index]; if (!id || !ph.data) continue;
+    try {
+      const blob = await (await fetch(ph.data)).blob(), path = 'members/' + id + '.jpg';
+      const up = await sb.storage.from('photos').upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+      if (!up.error) await sb.rpc('member_set_photo', { p_member: id, p_path: path });
+    } catch {}
+  }
 }

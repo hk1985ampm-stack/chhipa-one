@@ -33,8 +33,11 @@ export async function render(main) {
       h('div', {}, h('b', {}, x.full_name), ' ', h('span', { class: 'pill ' + x.status }, x.status),
         h('div', { class: 'muted', style: 'font-size:14px' }, [x.email, ROLE_LABEL[x.role], x.admin_code,
           x.location_ids.length ? x.location_ids.map(locName).join(', ') : null].filter(Boolean).join(' · '))),
-      h('button', { class: 'btn alt', onclick: () => setStatus(x.user_id, x.status === 'active' ? 'suspended' : 'active') },
-        x.status === 'active' ? 'Suspend' : 'Activate'))))),
+      h('div', { class: 'actions-card', style: 'justify-content:flex-end' },
+        h('button', { class: 'btn alt sm', onclick: () => setStatus(x.user_id, x.status === 'active' ? 'suspended' : 'active') }, x.status === 'active' ? 'Suspend' : 'Activate'),
+        x.status !== 'revoked' ? h('button', { class: 'btn alt sm bad', onclick: () => confirm('Remove ' + x.full_name + '? They can no longer sign in. You can restore them later.') && setStatus(x.user_id, 'revoked') }, 'Remove') : null,
+        x.status === 'revoked' ? h('button', { class: 'btn sm bad', onclick: async () => { if (prompt('Delete ' + x.full_name + ' FOREVER?\nType DELETE to confirm') !== 'DELETE') return;
+          const { error } = await sb.rpc('staff_purge', { p_user: x.user_id, p_confirm: 'DELETE' }); error ? toast(friendly(error)) : (toast('Deleted permanently'), reload()); } }, 'Delete permanently') : null))))),
     h('div', { class: 'card' }, h('h3', {}, 'Add or update staff'),
       h('p', { class: 'muted' }, 'Step 1: create the person\'s login in Supabase → Authentication → Users. Step 2: enter the same email here. Typing an existing email updates that person.'),
       h('label', {}, 'Email'), email, h('label', {}, 'Full name'), name, h('label', {}, 'Role'), role,

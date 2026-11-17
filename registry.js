@@ -2,11 +2,11 @@ import { cached, kvGet } from './offline.js';
 import { sb, h, hi, toast, friendly, pill, state } from './core.js';
 
 export async function render(main, arg) {
-  let status = arg === 'pending' ? 'pending' : '';
+  let status = arg === 'pending' ? 'pending' : arg === 'removed' ? 'removed' : '';
   const q = h('input', { type: 'search', placeholder: 'Name, Family ID, Member ID or mobile · खोजें', autofocus: true });
   const chips = h('div', { class: 'chips' });
   const out = h('div');
-  const FIL = [['', 'All'], ['pending', 'Pending'], ['approved', 'Approved'], ['rejected', 'Rejected']];
+  const FIL = [['', 'All'], ['pending', 'Pending'], ['approved', 'Approved'], ['rejected', 'Rejected'], ...(['super_admin', 'location_admin'].includes(state.profile.role) ? [['removed', 'Removed']] : [])];
   const drawChips = () => chips.replaceChildren(...FIL.map(([v, t]) =>
     h('button', { class: 'btn ' + (status === v ? '' : 'alt'), style: 'min-width:0', onclick: () => { status = v; drawChips(); run(); } }, t)));
   let timer, seq = 0;

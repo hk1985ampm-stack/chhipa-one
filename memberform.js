@@ -1,4 +1,5 @@
 import { h, digits, optList, age as calcAge } from './core.js';
+import { shrink, blobToDataUrl } from './photo.js';
 import { RELATIONS, GENDERS, MARITAL } from './options.js';
 
 const opt = (list, sel) => list.map(r => h('option', { value: r[0], selected: r[0] === sel }, `${r[1]} · ${r[2]}`));
@@ -44,6 +45,12 @@ export function memberForm(init = {}, { fixedRelation = null, ctx = null } = {})
   const email = h('input', { type: 'email', value: v('email'), placeholder: 'Email' });
   const mto = h('select'); const mtoWrap = h('div', { hidden: true }, h('label', {}, 'Married to · पति/पत्नी'), mto);
   syncAge();
+  let photoData = init.photo || '';
+  const prev = h('div', { class: 'ph sm' }, photoData ? h('img', { src: photoData, alt: '' }) : '📷');
+  const pick = h('input', { type: 'file', accept: 'image/*', hidden: true });
+  pick.addEventListener('change', async () => { if (!pick.files[0]) return; try { photoData = await blobToDataUrl(await shrink(pick.files[0])); prev.replaceChildren(h('img', { src: photoData, alt: '' })); pick.dispatchEvent(new Event('input', { bubbles: true })); } catch {} });
+  const photoRow = h('div', { class: 'photo-row' }, prev, h('div', {}, h('button', { type: 'button', class: 'btn alt sm', onclick: () => pick.click() }, 'Add photo (optional) · फोटो'), pick,
+    h('button', { type: 'button', class: 'btn alt sm', style: 'margin-left:8px', onclick: () => { photoData = ''; prev.replaceChildren('📷'); } }, 'Remove')));
   const tr = { gender, father, mother, mar, dob, name };
   Object.entries(tr).forEach(([k, el]) => el.addEventListener('input', () => touched.add(k)));
 
@@ -74,14 +81,14 @@ export function memberForm(init = {}, { fixedRelation = null, ctx = null } = {})
   if (init.relation) { drawMto(init.relation, init.spouse_of); if (!init.name) autofill(); }
 
   const el = h('div', {},
-    fld('Name · नाम *', name), h('div', { class: 'row' }, fld('Relation · संबंध *', rel), fld('Gender · लिंग *', gender)), mtoWrap,
+    photoRow, fld('Name · नाम *', name), h('div', { class: 'row' }, fld('Relation · संबंध *', rel), fld('Gender · लिंग *', gender)), mtoWrap,
     h('div', { class: 'row' }, fld('Date of birth · जन्म तिथि', dob), fld('Age · उम्र (auto if DOB)', age)),
     fld('Mobile · मोबाइल', mobile),
     fld("Father's name · पिता का नाम", father),
     h('div', { class: 'row' }, fld('Education · शिक्षा', edu.el), fld('Occupation · व्यवसाय', occ.el)),
     fld('Marital status · वैवाहिक स्थिति', mar),
     h('details', {}, h('summary', { class: 'muted' }, 'More details · और जानकारी'), fld("Mother's name", mother), fld('WhatsApp', wa), fld('Email', email)));
-  const read = () => ({ name: name.value.trim(), relation: fixedRelation || rel.value, gender: gender.value, dob: dob.value, age: dob.value ? '' : age.value, father_name: father.value.trim(),
+  const read = () => ({ photo: photoData, name: name.value.trim(), relation: fixedRelation || rel.value, gender: gender.value, dob: dob.value, age: dob.value ? '' : age.value, father_name: father.value.trim(),
     mobile: digits(mobile.value), education: edu.get(), occupation: occ.get(), marital_status: mar.value,
     mother_name: mother.value.trim(), whatsapp: digits(wa.value), email: email.value.trim(), spouse_of: mtoWrap.hidden ? '' : mto.value });
   const validate = () => {

@@ -1,19 +1,19 @@
-import { sb, h, hi, toast, friendly, pill, age, isApprover, field, ageText } from './core.js';
+import { sb, h, hi, toast, friendly, pill, age, isApprover, field, ageText, state } from './core.js';
 import { REL_LABELS } from './options.js';
 import { memberForm, selectOther } from './memberform.js';
 import { cached } from './offline.js';
-import { photoUrl, pickPhoto } from './photo.js';
+import { photoUrl, pickPhoto, uploadPhotos } from './photo.js';
 import { familyCardPdf } from './pdf.js';
 const initials = n => (n || '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
 import { optList } from './core.js';
 
 const relLabel = r => REL_LABELS[r] || r;
 const today = () => new Date().toISOString().slice(0, 10);
-const REASON = { married: 'Married — moved to husband’s family', divorced: 'Divorced — left this family', separated: 'Separated — left this family', branch: 'Moved to a separate household' };
+const REASON = { married: 'Married — moved to husband’s family', removed: 'Removed (wrong / test entry)', divorced: 'Divorced — left this family', separated: 'Separated — left this family', branch: 'Moved to a separate household' };
 
 export async function render(main, id) {
   const q1 = () => sb.from('families').select('*, locations(code,city,state)').eq('id', id).maybeSingle();
-  const q2 = () => sb.from('family_memberships').select('id,relation,is_active,end_date,reason,created_at, members(id,member_code,full_name,father_name,gender,dob,birth_year_est,photo_path,status,education,occupation,marital_status,record_state, member_contacts(mobile))').eq('family_id', id);
+  const q2 = () => sb.from('family_memberships').select('id,relation,is_active,end_date,reason,created_at, members(id,member_code,full_name,father_name,gender,dob,birth_year_est,photo_path,status,education,occupation,marital_status,record_state,mother_name,version,removed_at,removed_reason, member_contacts(mobile,whatsapp,email))').eq('family_id', id);
   const q3 = () => sb.from('family_history').select('*').eq('family_id', id).order('created_at', { ascending: false });
   const [f, ms, hs] = await Promise.all([cached('fam_' + id, q1), cached('mem_' + id, q2), cached('his_' + id, q3)]);
   const offline = f.offline || ms.offline;
@@ -26,7 +26,7 @@ export async function render(main, id) {
   for (const r of ms.data) { if (!r.members) continue; const c = by.get(r.members.id);
     if (!c || (r.is_active && !c.is_active) || (r.is_active === c.is_active && r.created_at > c.created_at)) by.set(r.members.id, r); }
   const rows = [...by.values()].sort((a, b) => (b.relation === 'head') - (a.relation === 'head') || b.is_active - a.is_active || (a.created_at > b.created_at ? 1 : -1));
-  const live = r => r.is_active && r.members.status === 'active';
+  const live = r => r.is_active && r.members.status === 'active' && !r.members.removed_at;
   const active = rows.filter(live).length;
   const names = Object.fromEntries(rows.map(r => [r.members.id, r.members.full_name]));
   const mids = rows.map(r => r.members.id);
@@ -146,7 +146,9 @@ export async function render(main, id) {
       error ? (b.disabled = false, toast(friendly(error))) : (toast('Member added'), reload()); })));
   }
 
-  const canEdit = isApprover() && fam.status === 'approved' && !offline;
+  const canEdit = isApprover() && fam.status === 'approved' && !offline && !fam.removed_at;
+  const canRemoveFam = !offline && !fam.removed_at && (isApprover() || (fam.created_by === state.profile.user_id && ['draft', 'pending', 'rejected'].includes(fam.status)));
+  const isSuper = state.profile.role === 'super_admin';
   const headRow = rows.find(r => r.relation === 'head');
   const headGone = headRow && headRow.members.status === 'deceased' && canEdit;
 
@@ -173,6 +175,27 @@ export async function render(main, id) {
       divorced_returned: `${n} returned to this family after divorce`, separated_returned: `${n} returned to this family after separation`, death: `${n} passed away`,
       head_change: `Family head changed to ${names[d.new] || n}${d.reason ? ' (' + d.reason + ')' : ''}`, branch_created: `${n} started a separate household ${d.new_code || ''}`, branch_origin: `${n}'s household began from family ${d.parent_code || ''}` })[x.event] || x.event; };
 
+  const ask = (q, def) => { const v = prompt(q, def || ''); return v === null ? null : v.trim(); };
+  const run = async (promise, ok) => { const { error } = await promise; error ? toast(friendly(error)) : (toast(ok), reload()); };
+  const removeFam = () => { const r = ask('Why remove this family? (wrong entry / test run …)'); if (r) run(sb.rpc('family_remove', { p_id: id, p_reason: r }), 'Family removed'); };
+  const purgeFam = () => { if (ask('This deletes the family and its members FOREVER.\nType DELETE to confirm') === 'DELETE') sb.rpc('purge_family', { p_id: id, p_confirm: 'DELETE' }).then(({ error }) => error ? toast(friendly(error)) : (toast('Deleted permanently'), location.hash = 'registry')); };
+  const removeMem = m => { const r = ask('Why remove ' + m.full_name + '?'); if (r) run(sb.rpc('member_remove', { p_id: m.id, p_reason: r }), 'Member removed'); };
+  const purgeMem = m => { if (ask('Delete ' + m.full_name + ' FOREVER?\nType DELETE to confirm') === 'DELETE') run(sb.rpc('purge_member', { p_id: m.id, p_confirm: 'DELETE' }), 'Deleted permanently'); };
+  function editMember(r) {
+    const m = r.members, c = Array.isArray(m.member_contacts) ? m.member_contacts[0] : m.member_contacts;
+    const mf = memberForm({ name: m.full_name, relation: r.relation, gender: m.gender, dob: m.dob, age: m.birth_year_est ? new Date().getFullYear() - m.birth_year_est : '', father_name: m.father_name, mother_name: m.mother_name,
+      education: m.education, occupation: m.occupation, marital_status: m.marital_status, mobile: c && c.mobile, whatsapp: c && c.whatsapp, email: c && c.email }, { fixedRelation: r.relation });
+    card('Edit member · ' + m.full_name, mf.el, bar(sub('Save', async b => {
+      const e = mf.validate(); if (e) return toast(e); b.disabled = true;
+      const { photo, ...pl } = mf.read();
+      const { data, error } = await sb.rpc('member_update', { p_id: m.id, p: pl, p_version: m.version });
+      if (error) { b.disabled = false; return toast(friendly(error)); }
+      if (!data) { toast('Someone else changed this member just now. Showing the latest.'); return reload(); }
+      if (photo && photo.startsWith('data:')) await uploadPhotos([m.id], [{ index: 0, data: photo }]);
+      toast('Saved'); reload(); })));
+  }
+  const memAvatar = m => { const b = h('div', { class: 'ph sm' }, initials(m.full_name)); if (m.photo_path) photoUrl(m.photo_path).then(u => { if (u) b.replaceChildren(h('img', { src: u, alt: '' })); }); return b; };
+
   const hm = headRow && headRow.members;
   const hmobile = hm ? mobile(hm) : '';
   const photoBox = h('div', { class: 'ph' }, hm ? initials(hm.full_name) : '?');
@@ -198,14 +221,23 @@ export async function render(main, id) {
     heroCard(),
     infoGrid(),
     canEdit ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn alt', onclick: editFam }, 'Edit details'), h('button', { class: 'btn', onclick: addMember }, '+ Add member'), h('button', { class: 'btn alt', onclick: headForm }, 'Change head')) : null,
+    canRemoveFam ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn bad', onclick: removeFam }, 'Remove family (wrong / test entry)')) : null,
+    fam.removed_at ? h('div', { class: 'card dupwarn' }, h('b', {}, 'This family was removed.'), h('p', { class: 'muted' }, fam.removed_reason || ''), h('div', { class: 'actions-card' }, isApprover() ? h('button', { class: 'btn', onclick: () => run(sb.rpc('family_restore', { p_id: id }), 'Family restored') }, 'Restore family') : null, isSuper ? h('button', { class: 'btn bad', onclick: purgeFam }, 'Delete permanently') : null)) : null,
     headGone ? h('div', { class: 'card dupwarn' }, h('b', {}, 'The family head has passed away.'), h('p', { class: 'muted' }, 'Choose the new head (the wife is suggested).'), h('button', { class: 'btn', onclick: headForm }, 'Choose new head')) : null,
     actions, box,
     h('h3', {}, 'Members · सदस्य'),
-    ...rows.map(r => { const m = r.members, hist = !live(r);
+    ...rows.map(r => { const m = r.members, hist = !live(r), gone = !!m.removed_at, adm = isApprover() && !offline;
       return h('div', { class: 'card mem' + (hist ? ' grey' : '') },
-        h('div', { class: 'item' }, h('span', {}, h('b', {}, m.full_name), ' · ', relLabel(r.relation)), m.member_code ? h('span', { class: 'muted nowrap' }, m.member_code) : pill(m.record_state)),
-        h('div', { class: 'muted', style: 'font-size:14px' }, [m.gender, ageText(m), m.marital_status, m.education, m.occupation, mobile(m),
-          m.status === 'deceased' ? 'Deceased' : hist ? (REASON[r.reason] || 'Historical') : null].filter(Boolean).join(' · ')),
+        h('div', { class: 'mem-top' }, memAvatar(m), h('div', { class: 'mem-txt' },
+          h('div', { class: 'item' }, h('span', {}, h('b', {}, m.full_name), ' · ', relLabel(r.relation)), m.member_code ? h('span', { class: 'muted nowrap' }, m.member_code) : pill(m.record_state)),
+          h('div', { class: 'muted', style: 'font-size:14px' }, [m.gender, ageText(m), m.marital_status, m.education, m.occupation, mobile(m),
+            m.status === 'deceased' ? 'Deceased' : gone ? 'Removed' + (m.removed_reason ? ': ' + m.removed_reason : '') : hist ? (REASON[r.reason] || 'Historical') : null].filter(Boolean).join(' · ')))),
+        adm && !fam.removed_at ? h('div', { class: 'mem-btns' },
+          !gone ? h('button', { class: 'btn alt sm', onclick: () => editMember(r) }, '✏️ Edit') : null,
+          !gone ? h('button', { class: 'btn alt sm', onclick: () => pickPhoto(m.id, reload) }, '📷 Photo') : null,
+          !gone && live(r) && r.relation !== 'head' ? h('button', { class: 'btn alt sm bad', onclick: () => removeMem(m) }, 'Remove') : null,
+          gone ? h('button', { class: 'btn sm', onclick: () => run(sb.rpc('member_restore', { p_id: m.id }), 'Member restored') }, 'Restore') : null,
+          gone && isSuper ? h('button', { class: 'btn sm bad', onclick: () => purgeMem(m) }, 'Delete permanently') : null) : null,
         menu(r)); }),
     hs.data && hs.data.length ? h('div', {}, h('h3', {}, 'History · इतिहास'), h('div', { class: 'card list' }, hs.data.map(x => h('div', { class: 'item' }, h('span', {}, say(x)), h('span', { class: 'muted' }, x.event_date || ''))))) : null].filter(Boolean));
 }

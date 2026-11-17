@@ -39,6 +39,12 @@ async function detail(main, id) {
   const setStatus = async s => { if (s !== 'active' && !confirm('Deactivate this community? Its users will lose access until you reactivate it. No data is deleted.')) return;
     const { error } = await sb.rpc('community_set_status', { p_id: id, p_status: s }); error ? toast(friendly(error)) : (toast('Updated'), reload()); };
 
+  const purge = async () => {
+    const n = prompt('This deletes the community, its locations, families and members FOREVER.\nType the community name exactly to confirm:\n' + c.name);
+    if (n === null) return;
+    const { error } = await sb.rpc('community_purge', { p_id: id, p_name: n });
+    error ? toast(friendly(error)) : (toast('Community deleted permanently'), location.hash = 'communities');
+  };
   const draw = async () => {
     tabs.replaceChildren(...TABS.map(([k, t]) => h('button', { class: 'btn ' + (tab === k ? '' : 'alt'), onclick: () => { tab = k; sessionStorage.setItem('comm_tab', k); draw(); } }, t)));
     body.replaceChildren(h('p', { class: 'muted' }, 'Loading…'));
@@ -68,7 +74,7 @@ async function detail(main, id) {
 
   const tPeople = async () => h('div', {}, h('div', { class: 'card list' }, ppl.data.length ? ppl.data.map(p => h('div', { class: 'item' },
     h('span', {}, h('b', {}, p.full_name), h('div', { class: 'muted s' }, p.email + ' · ' + (p.location_codes || []).join(', '))),
-    h('span', {}, h('span', { class: 'muted s' }, ROLE_LABEL[p.role] || p.role), ' ', stPill(p.status)))) : h('p', { class: 'muted' }, 'No admins or agents assigned yet.')),
+    h('span', {}, h('span', { class: 'muted s' }, ROLE_LABEL[p.role] || p.role), ' ', stPill(p.status), ' ', h('button', { class: 'btn alt sm', onclick: async () => { const { error } = await sb.rpc('staff_set_status', { p_user: p.user_id, p_status: p.status === 'active' ? 'revoked' : 'active' }); error ? toast(friendly(error)) : reload(); } }, p.status === 'active' ? 'Remove' : 'Restore')))) : h('p', { class: 'muted' }, 'No admins or agents assigned yet.')),
     h('p', {}, h('a', { class: 'btn', href: '#staff' }, 'Add / assign staff')));
 
   const locIds = locs.data.map(l => l.id), codeOf = Object.fromEntries(locs.data.map(l => [l.id, l.code]));
@@ -97,7 +103,8 @@ async function detail(main, id) {
   main.append(h('div', { class: 'backlink noprint' }, h('a', { href: '#communities' }, '← Communities')),
     h('div', { class: 'card' }, h('div', { class: 'item' }, h('h2', { style: 'margin:0' }, c.name), stPill(c.status)),
       h('div', { class: 'stats' }, stat(c.locations, 'Locations'), stat(c.families, 'Families'), stat(c.members, 'Members'), stat(c.admins, 'Admins'), stat(c.agents, 'Agents')),
-      h('p', {}, c.status === 'active' ? h('button', { class: 'btn alt sm', onclick: () => setStatus('suspended') }, 'Deactivate community') : h('button', { class: 'btn sm', onclick: () => setStatus('active') }, 'Reactivate community'))),
+      h('p', { class: 'actions-card' }, c.status === 'active' ? h('button', { class: 'btn alt sm', onclick: () => setStatus('suspended') }, 'Deactivate community') : h('button', { class: 'btn sm', onclick: () => setStatus('active') }, 'Reactivate community'),
+        c.status !== 'active' ? h('button', { class: 'btn bad sm', onclick: purge }, 'Delete permanently (test data)') : null)),
     tabs, body);
   draw();
 }

@@ -1,4 +1,5 @@
 import { enqueue, isNetErr } from './offline.js';
+import { uploadPhotos } from './photo.js';
 import { sb, h, hi, toast, friendly, state, digits, myLocations, isApprover, field, optList } from './core.js';
 import { REL_LABELS } from './options.js';
 import { memberForm, selectOther } from './memberform.js';
@@ -112,14 +113,16 @@ export async function render(main) {
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       if (!S.client_ref) { S.client_ref = crypto.randomUUID(); save(); }
-      const payload = { client_ref: S.client_ref, location_id: S.location_id, address: S.address, gotra: S.gotra, family_type: S.family_type, phone: S.phone, taluka: S.taluka, pincode: S.pincode, house_type: S.house_type, members: S.members };
+      const payload = { client_ref: S.client_ref, location_id: S.location_id, address: S.address, gotra: S.gotra, family_type: S.family_type, phone: S.phone, taluka: S.taluka, pincode: S.pincode, house_type: S.house_type, members: S.members.map(({ photo, ...x }) => x) };
+      const photos = S.members.map((x, i) => ({ index: i, data: x.photo })).filter(x => x.data);
       const { data, error } = await sb.rpc('family_create', { p: payload });
       if (error && isNetErr(error)) {   // no internet: keep it safely and upload automatically later
-        await enqueue(payload); localStorage.removeItem(key());
+        await enqueue({ ...payload, _photos: photos }); localStorage.removeItem(key());
         toast('Saved on this phone. It will upload when the internet returns.'); location.hash = 'registry'; return;
       }
       if (error) { btn.disabled = false; return toast(friendly(error)); }
       localStorage.removeItem(key());
+      if (photos.length) await uploadPhotos(data.member_ids, photos);
       toast(data.status === 'approved' ? 'Saved. Family ID ' + data.family_code : 'Submitted for approval');
       location.hash = 'family/' + data.family_id;
     });
