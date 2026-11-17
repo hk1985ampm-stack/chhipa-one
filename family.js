@@ -1,4 +1,4 @@
-import { sb, h, hi, toast, friendly, pill, age, isApprover, field } from './core.js';
+import { sb, h, hi, toast, friendly, pill, age, isApprover, field, ageText } from './core.js';
 import { REL_LABELS } from './options.js';
 import { memberForm, selectOther } from './memberform.js';
 import { optList } from './core.js';
@@ -10,7 +10,7 @@ const REASON = { married: 'Married — moved to husband’s family', divorced: '
 export async function render(main, id) {
   const [f, ms, hs] = await Promise.all([
     sb.from('families').select('*, locations(code,city,state)').eq('id', id).maybeSingle(),
-    sb.from('family_memberships').select('id,relation,is_active,end_date,reason,created_at, members(id,member_code,full_name,father_name,gender,dob,status,education,occupation,marital_status,record_state, member_contacts(mobile))').eq('family_id', id),
+    sb.from('family_memberships').select('id,relation,is_active,end_date,reason,created_at, members(id,member_code,full_name,father_name,gender,dob,birth_year_est,status,education,occupation,marital_status,record_state, member_contacts(mobile))').eq('family_id', id),
     sb.from('family_history').select('*').eq('family_id', id).order('created_at', { ascending: false })]);
   if (f.error || ms.error) throw (f.error || ms.error);
   if (!f.data) return main.append(h('p', { class: 'err' }, 'Family not found, or you do not have access.'));
@@ -79,7 +79,7 @@ export async function render(main, id) {
       sp = data[0]; submit.disabled = false;
       who.replaceChildren(h('option', { value: 'me', selected: m.gender === 'female' }, `${m.full_name} moves to ${sp.full_name}’s family`),
         h('option', { value: 'them', selected: m.gender !== 'female' }, `${sp.full_name} moves to ${m.full_name}’s family`));
-      out.replaceChildren(h('div', { class: 'card' }, h('b', {}, sp.full_name), sp.father_name ? ' s/o ' + sp.father_name : '', h('div', { class: 'muted' }, [sp.member_code, sp.family_code && 'Family ' + sp.family_code, sp.city, sp.gender, sp.dob && age(sp.dob) + ' yrs', sp.marital_status].filter(Boolean).join(' · ')),
+      out.replaceChildren(h('div', { class: 'card' }, h('b', {}, sp.full_name), sp.father_name ? ' s/o ' + sp.father_name : '', h('div', { class: 'muted' }, [sp.member_code, sp.family_code && 'Family ' + sp.family_code, sp.city, sp.gender, ageText(sp), sp.marital_status].filter(Boolean).join(' · ')),
         sp.member_status === 'deceased' || ['Married', 'Separated'].includes(sp.marital_status) ? h('div', { class: 'err' }, 'Check carefully: this person is recorded as ' + (sp.member_status === 'deceased' ? 'deceased' : sp.marital_status) + '.') : null),
         field('Who moves to the other family? · कौन जाएगा?', who));
     };
@@ -180,7 +180,7 @@ export async function render(main, id) {
     ...rows.map(r => { const m = r.members, hist = !live(r);
       return h('div', { class: 'card mem' + (hist ? ' grey' : '') },
         h('div', { class: 'item' }, h('span', {}, h('b', {}, m.full_name), ' · ', relLabel(r.relation)), m.member_code ? h('span', { class: 'muted' }, m.member_code) : pill(m.record_state)),
-        h('div', { class: 'muted', style: 'font-size:14px' }, [m.gender, m.dob && age(m.dob) + ' yrs', m.marital_status, m.education, m.occupation, mobile(m),
+        h('div', { class: 'muted', style: 'font-size:14px' }, [m.gender, ageText(m), m.marital_status, m.education, m.occupation, mobile(m),
           m.status === 'deceased' ? 'Deceased' : hist ? (REASON[r.reason] || 'Historical') : null].filter(Boolean).join(' · ')),
         menu(r)); }),
     hs.data && hs.data.length ? h('div', {}, h('h3', {}, 'History · इतिहास'), h('div', { class: 'card list' }, hs.data.map(x => h('div', { class: 'item' }, h('span', {}, say(x)), h('span', { class: 'muted' }, x.event_date || ''))))) : null].filter(Boolean));

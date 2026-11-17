@@ -1,4 +1,4 @@
-import { h, digits, optList } from './core.js';
+import { h, digits, optList, age as calcAge } from './core.js';
 import { RELATIONS, GENDERS, MARITAL } from './options.js';
 
 const opt = (list, sel) => list.map(r => h('option', { value: r[0], selected: r[0] === sel }, `${r[1]} · ${r[2]}`));
@@ -29,6 +29,11 @@ export function memberForm(init = {}, { fixedRelation = null, ctx = null } = {})
       .map(r => h('option', { value: r[0], selected: r[0] === (fixedRelation || init.relation) }, `${r[1]} · ${r[2]}`)));
   const gender = h('select', {}, h('option', { value: '' }, 'Select · चुनें'), opt(GENDERS, v('gender')));
   const dob = h('input', { type: 'date', value: v('dob'), max: new Date().toISOString().slice(0, 10) });
+  const age = h('input', { type: 'number', inputmode: 'numeric', min: 0, max: 120, placeholder: 'Age · उम्र' });
+  const syncAge = () => { if (dob.value) { age.value = calcAge(dob.value); age.readOnly = true; age.title = 'Calculated from date of birth'; }
+    else { age.readOnly = false; age.title = ''; } age.classList.toggle('auto', age.readOnly); };
+  dob.addEventListener('input', syncAge);
+  if (!init.dob && init.age) age.value = init.age;
   const father = h('input', { value: v('father_name'), placeholder: "Father's name · पिता का नाम" });
   const mobile = h('input', { type: 'tel', inputmode: 'numeric', value: v('mobile'), placeholder: '10-digit mobile' });
   const edu = selectOther(optList('education'), v('education'));
@@ -38,6 +43,7 @@ export function memberForm(init = {}, { fixedRelation = null, ctx = null } = {})
   const wa = h('input', { type: 'tel', inputmode: 'numeric', value: v('whatsapp'), placeholder: 'WhatsApp number' });
   const email = h('input', { type: 'email', value: v('email'), placeholder: 'Email' });
   const mto = h('select'); const mtoWrap = h('div', { hidden: true }, h('label', {}, 'Married to · पति/पत्नी'), mto);
+  syncAge();
   const tr = { gender, father, mother, mar, dob, name };
   Object.entries(tr).forEach(([k, el]) => el.addEventListener('input', () => touched.add(k)));
 
@@ -69,12 +75,13 @@ export function memberForm(init = {}, { fixedRelation = null, ctx = null } = {})
 
   const el = h('div', {},
     fld('Name · नाम *', name), h('div', { class: 'row' }, fld('Relation · संबंध *', rel), fld('Gender · लिंग *', gender)), mtoWrap,
-    h('div', { class: 'row' }, fld('Date of birth · जन्म तिथि', dob), fld('Mobile · मोबाइल', mobile)),
+    h('div', { class: 'row' }, fld('Date of birth · जन्म तिथि', dob), fld('Age · उम्र (auto if DOB)', age)),
+    fld('Mobile · मोबाइल', mobile),
     fld("Father's name · पिता का नाम", father),
     h('div', { class: 'row' }, fld('Education · शिक्षा', edu.el), fld('Occupation · व्यवसाय', occ.el)),
     fld('Marital status · वैवाहिक स्थिति', mar),
     h('details', {}, h('summary', { class: 'muted' }, 'More details · और जानकारी'), fld("Mother's name", mother), fld('WhatsApp', wa), fld('Email', email)));
-  const read = () => ({ name: name.value.trim(), relation: fixedRelation || rel.value, gender: gender.value, dob: dob.value, father_name: father.value.trim(),
+  const read = () => ({ name: name.value.trim(), relation: fixedRelation || rel.value, gender: gender.value, dob: dob.value, age: dob.value ? '' : age.value, father_name: father.value.trim(),
     mobile: digits(mobile.value), education: edu.get(), occupation: occ.get(), marital_status: mar.value,
     mother_name: mother.value.trim(), whatsapp: digits(wa.value), email: email.value.trim(), spouse_of: mtoWrap.hidden ? '' : mto.value });
   const validate = () => {
@@ -83,6 +90,7 @@ export function memberForm(init = {}, { fixedRelation = null, ctx = null } = {})
     if (!m.relation) return 'Please select the relation';
     if (!m.gender) return 'Please select gender';
     if (mobile.value.trim() && m.mobile.length !== 10) return 'Mobile number must be 10 digits';
+    if (!dob.value && age.value !== '' && (+age.value < 0 || +age.value > 120)) return 'Age must be between 0 and 120';
     if (dob.value && dob.value > new Date().toISOString().slice(0, 10)) return 'Date of birth cannot be in the future';
     return '';
   };

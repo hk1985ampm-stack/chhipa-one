@@ -115,8 +115,8 @@ export async function render(main) {
     });
     draw.append(h('h2', {}, hi('Review', 'जाँच करें')),
       h('div', { class: 'card' }, h('b', {}, S.members[0].name), ' (head) · ', loc ? loc.city : '', h('div', { class: 'muted' }, [S.address, S.gotra && 'Gotra ' + S.gotra, S.family_type, S.phone].filter(Boolean).join(' · '))),
-      h('div', { class: 'card' }, h('table', {}, h('tr', {}, ['Name', 'Relation', 'Gender', 'DOB'].map(t => h('th', {}, t))),
-        S.members.map(m => h('tr', {}, h('td', {}, m.name), h('td', {}, relLabel(m.relation)), h('td', {}, m.gender), h('td', {}, m.dob || ''))))),
+      h('div', { class: 'card' }, h('table', {}, h('tr', {}, ['Name', 'Relation', 'Gender', 'DOB / Age'].map(t => h('th', {}, t))),
+        S.members.map(m => h('tr', {}, h('td', {}, m.name), h('td', {}, relLabel(m.relation)), h('td', {}, m.gender), h('td', {}, m.dob || (m.age ? '~' + m.age + ' yrs' : '')))))),
       h('p', { class: 'muted' }, isApprover() ? 'As an admin, this family is approved immediately and receives its permanent Family ID.' : 'Your Location Admin will review it. The permanent Family ID is issued after approval.'),
       h('div', { class: 'actions' }, h('button', { class: 'btn alt', onclick: () => go(3) }, '← Back'), btn));
   }
@@ -128,5 +128,5 @@ export async function render(main) {
       h('div', { class: 'actions' },
         h('button', { class: 'btn alt', onclick: () => { S = blank(); save(); step(); } }, 'Start new'),
         h('button', { class: 'btn', onclick: step }, 'Continue'))));
-  } else { S = blank(); step(); }
+  } else { if (!S || !Array.isArray(S.members) || !S.members.length || !S.step) S = blank(); step(); }
 }

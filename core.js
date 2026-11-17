@@ -41,6 +41,7 @@ export const age = dob => {
   if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) a--;
   return a;
 };
+export const ageText = m => m.dob ? age(m.dob) + ' yrs' : m.birth_year_est ? '~' + (new Date().getFullYear() - m.birth_year_est) + ' yrs' : (m.age ? '~' + m.age + ' yrs' : '');
 export const isApprover = () => ['super_admin', 'location_admin'].includes(state.profile.role);
 export const field = (label, el) => h('div', {}, h('label', {}, label), el);
 export const pill = st => h('span', { class: 'pill ' + st }, st);
