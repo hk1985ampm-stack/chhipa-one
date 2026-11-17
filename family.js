@@ -130,6 +130,7 @@ export async function render(main, id) {
     const a = h('textarea', { rows: 3 }, fam.address || ''), g = selectOther(optList('gotra'), fam.gotra), p = h('input', { type: 'tel', value: fam.phone || '' }), t = selectOther(optList('family_type'), fam.family_type);
     const tl = h('input', { value: fam.taluka || '' }), pn = h('input', { type: 'tel', maxlength: 6, value: fam.pincode || '' }), hs2 = selectOther(optList('house_type'), fam.house_type), qt = h('input', { value: fam.quote || '', placeholder: 'Together We Build a Stronger Community' });
     card('Edit details', field('Address', a), field('Gotra · गोत्र', g.el), field('Family type', t.el), h('div', { class: 'row' }, field('Taluka', tl), field('Pincode', pn)), field('House', hs2.el), field('Card footer quote', qt), field('Contact number', p), bar(sub('Save', async () => {
+      if (!direct) { const { error: er } = await sb.rpc('change_request_submit', { p_kind: 'family_edit', p_target: id, p: { address: a.value.trim(), gotra: g.get() || '', family_type: t.get() || '', phone: p.value.trim(), taluka: tl.value.trim(), pincode: pn.value.trim(), house_type: hs2.get() || '' } }); return er ? toast(friendly(er)) : (toast('Sent to your admin for approval'), close()); }
       const { data, error } = await sb.from('families').update({ address: a.value.trim() || null, gotra: g.get() || null, family_type: t.get() || null, phone: p.value.trim() || null, taluka: tl.value.trim() || null, pincode: pn.value.trim() || null, house_type: hs2.get() || null, quote: qt.value.trim() || null }).eq('id', id).eq('version', fam.version).select('id');
       if (error) return toast(friendly(error));
       if (!data.length) { toast('Someone else changed this family just now. Showing the latest version.'); return reload(); }
@@ -147,6 +148,9 @@ export async function render(main, id) {
   }
 
   const canEdit = isApprover() && fam.status === 'approved' && !offline && !fam.removed_at;
+  const ro = !!state.profile.read_only, ownOpen = !ro && !isApprover() && fam.created_by === state.profile.user_id && ['pending', 'rejected'].includes(fam.status) && !offline && !fam.removed_at;
+  const canRequest = !ro && !isApprover() && fam.status === 'approved' && !offline && !fam.removed_at;   // agents propose, admin approves
+  const direct = isApprover() || ownOpen;
   const canRemoveFam = !offline && !fam.removed_at && (isApprover() || (fam.created_by === state.profile.user_id && ['draft', 'pending', 'rejected'].includes(fam.status)));
   const isSuper = state.profile.role === 'super_admin';
   const headRow = rows.find(r => r.relation === 'head');
@@ -188,6 +192,7 @@ export async function render(main, id) {
     card('Edit member · ' + m.full_name, mf.el, bar(sub('Save', async b => {
       const e = mf.validate(); if (e) return toast(e); b.disabled = true;
       const { photo, ...pl } = mf.read();
+      if (!direct) { const { error: er } = await sb.rpc('change_request_submit', { p_kind: 'member_edit', p_target: m.id, p: pl }); if (er) { b.disabled = false; return toast(friendly(er)); } toast('Sent to your admin for approval'); return close(); }
       const { data, error } = await sb.rpc('member_update', { p_id: m.id, p: pl, p_version: m.version });
       if (error) { b.disabled = false; return toast(friendly(error)); }
       if (!data) { toast('Someone else changed this member just now. Showing the latest.'); return reload(); }
@@ -221,20 +226,22 @@ export async function render(main, id) {
     heroCard(),
     infoGrid(),
     canEdit ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn alt', onclick: editFam }, 'Edit details'), h('button', { class: 'btn', onclick: addMember }, '+ Add member'), h('button', { class: 'btn alt', onclick: headForm }, 'Change head')) : null,
+    !canEdit && (canRequest || ownOpen) ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn alt', onclick: editFam }, direct ? 'Edit details' : 'Request change'), ownOpen ? h('button', { class: 'btn alt', onclick: addMember }, '+ Add member') : null,
+      fam.status === 'rejected' && (ownOpen || isApprover()) ? h('button', { class: 'btn', onclick: async () => { const { error } = await sb.rpc('family_resubmit', { p_id: id }); error ? toast(friendly(error)) : (toast('Resubmitted for approval'), reload()); } }, '↻ Fix done · Resubmit') : null) : null,
     canRemoveFam ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn bad', onclick: removeFam }, 'Remove family (wrong / test entry)')) : null,
     fam.removed_at ? h('div', { class: 'card dupwarn' }, h('b', {}, 'This family was removed.'), h('p', { class: 'muted' }, fam.removed_reason || ''), h('div', { class: 'actions-card' }, isApprover() ? h('button', { class: 'btn', onclick: () => run(sb.rpc('family_restore', { p_id: id }), 'Family restored') }, 'Restore family') : null, isSuper ? h('button', { class: 'btn bad', onclick: purgeFam }, 'Delete permanently') : null)) : null,
     headGone ? h('div', { class: 'card dupwarn' }, h('b', {}, 'The family head has passed away.'), h('p', { class: 'muted' }, 'Choose the new head (the wife is suggested).'), h('button', { class: 'btn', onclick: headForm }, 'Choose new head')) : null,
     actions, box,
     h('h3', {}, 'Members · सदस्य'),
-    ...rows.map(r => { const m = r.members, hist = !live(r), gone = !!m.removed_at, adm = isApprover() && !offline;
+    ...rows.map(r => { const m = r.members, hist = !live(r), gone = !!m.removed_at, adm = isApprover() && !offline, medit = (adm || canRequest || ownOpen) && !gone;
       return h('div', { class: 'card mem' + (hist ? ' grey' : '') },
         h('div', { class: 'mem-top' }, memAvatar(m), h('div', { class: 'mem-txt' },
           h('div', { class: 'item' }, h('span', {}, h('b', {}, m.full_name), ' · ', relLabel(r.relation)), m.member_code ? h('span', { class: 'muted nowrap' }, m.member_code) : pill(m.record_state)),
           h('div', { class: 'muted', style: 'font-size:14px' }, [m.gender, ageText(m), m.marital_status, m.education, m.occupation, mobile(m),
             m.status === 'deceased' ? 'Deceased' : gone ? 'Removed' + (m.removed_reason ? ': ' + m.removed_reason : '') : hist ? (REASON[r.reason] || 'Historical') : null].filter(Boolean).join(' · ')))),
-        adm && !fam.removed_at ? h('div', { class: 'mem-btns' },
-          !gone ? h('button', { class: 'btn alt sm', onclick: () => editMember(r) }, '✏️ Edit') : null,
-          !gone ? h('button', { class: 'btn alt sm', onclick: () => pickPhoto(m.id, reload) }, '📷 Photo') : null,
+        (adm || medit) && !fam.removed_at ? h('div', { class: 'mem-btns' },
+          medit ? h('button', { class: 'btn alt sm', onclick: () => editMember(r) }, direct ? '✏️ Edit' : '✏️ Request edit') : null,
+          !gone && adm ? h('button', { class: 'btn alt sm', onclick: () => pickPhoto(m.id, reload) }, '📷 Photo') : null,
           !gone && live(r) && r.relation !== 'head' ? h('button', { class: 'btn alt sm bad', onclick: () => removeMem(m) }, 'Remove') : null,
           gone ? h('button', { class: 'btn sm', onclick: () => run(sb.rpc('member_restore', { p_id: m.id }), 'Member restored') }, 'Restore') : null,
           gone && isSuper ? h('button', { class: 'btn sm bad', onclick: () => purgeMem(m) }, 'Delete permanently') : null) : null,

@@ -1,7 +1,7 @@
 import { sb, h, hi, state, ROLE_LABEL } from './core.js';
 import { logoImg, brandName, brandSub, brand } from './brand.js';
 
-const APP_VERSION = 'v15 · Branding';
+const APP_VERSION = 'v17 · Print, Scan & Reminders';
 const tile = (href, en, hindi, soon, badge) =>
   h(soon ? 'div' : 'a', { class: 'tile' + (soon ? ' soon' : ''), href: soon ? null : href },
     h('span', {}, en), h('span', { class: 'hi' }, hindi), soon ? h('span', { class: 'tag' }, 'Coming in Phase ' + soon) : null, badge ? h('span', { class: 'badge' }, String(badge)) : null);
@@ -15,14 +15,14 @@ export async function render(main) {
   const p = state.profile, sup = p.role === 'super_admin', appr = ['super_admin', 'location_admin'].includes(p.role);
   const SECTIONS = [
     ['families', '👨‍👩‍👧 Families', [
-      tile('#registry', 'Family Registry', 'परिवार रजिस्टर'), tile('#add', 'Add Family', 'परिवार जोड़ें'),
+      tile('#registry', 'Family Registry', 'परिवार रजिस्टर'), p.read_only ? null : tile('#add', 'Add Family', 'परिवार जोड़ें'), p.read_only ? null : tile('#requests', 'Change Requests', 'बदलाव अनुरोध'),
       tile('#events', 'Life Events', 'जीवन घटनाएँ'), tile('#notifications', 'Notifications', 'सूचनाएँ', false, unread),
       tile('#reports', 'Reports', 'रिपोर्ट'), tile('#reports/quality', 'Data Quality', 'डेटा जाँच'),
       appr ? tile('#registry/removed', 'Removed Entries', 'हटाई गई प्रविष्टियाँ') : null]],
     ...(appr ? [['office', '🏢 Office', [
       tile('#registry/pending', 'Pending Approvals', 'लंबित स्वीकृति', false, pend),
       sup ? tile('#communities', 'Communities', 'समुदाय') : null, sup ? tile('#staff', 'Staff & Agents', 'स्टाफ / एजेंट') : null,
-      tile('#excel', 'Excel Import / Export', 'एक्सेल'), tile('#tools', 'Duplicates & Bulk Edit', 'डुप्लिकेट / बल्क एडिट'), sup ? tile('#lists', 'Dropdown Lists', 'ड्रॉपडाउन सूची') : null, sup ? tile('#backup', 'Backup', 'बैकअप') : null, sup ? tile('#audit', 'Audit Log', 'ऑडिट लॉग') : null]]] : [])];
+      tile('#activity', 'Agent Activity', 'एजेंट गतिविधि'), tile('#scan', 'Scan QR', 'क्यू आर स्कैन'), tile('#reminders', 'Birthdays & WhatsApp', 'रिमाइंडर'), (sup || p.can_export || ['location_admin'].includes(p.role)) ? tile('#print', 'Print Center', 'प्रिंट सेंटर') : null, tile('#excel', 'Excel Import / Export', 'एक्सेल'), tile('#tools', 'Duplicates & Bulk Edit', 'डुप्लिकेट / बल्क एडिट'), sup ? tile('#lists', 'Dropdown Lists', 'ड्रॉपडाउन सूची') : null, sup ? tile('#backup', 'Backup', 'बैकअप') : null, sup ? tile('#audit', 'Audit Log', 'ऑडिट लॉग') : null]]] : [])];
   let cur = sessionStorage.getItem('home_tab'); if (!SECTIONS.some(s => s[0] === cur)) cur = 'families';
   const body = h('div'), tabs = h('div', { class: 'chips' });
   const draw = () => {

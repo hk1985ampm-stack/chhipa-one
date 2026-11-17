@@ -3,7 +3,7 @@ import { REL_LABELS } from './options.js';
 import { photoUrl } from './photo.js';
 import { brand, logoUrl } from './brand.js';
 
-const load = src => new Promise((ok, no) => { if (document.querySelector(`script[data-s="${src}"]`)) return ok();
+export const load = src => new Promise((ok, no) => { if (document.querySelector(`script[data-s="${src}"]`)) return ok();
   const s = document.createElement('script'); s.src = src; s.dataset.s = src; s.onload = ok; s.onerror = () => no(new Error('Could not load ' + src)); document.head.appendChild(s); });
 const dataUrl = async u => { const r = await fetch(u); const b = await r.blob(); return new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.readAsDataURL(b); }); };
 const safe = n => (n || 'family').replace(/[^\w\s-]/g, '').replace(/\s+/g, '_').slice(0, 40);
@@ -12,7 +12,7 @@ const REL_PDF = { head: 'Khud (Self)', spouse: 'Patni / Pati (Spouse)', son: 'Be
 
 export const loadPdfLibs = async () => { await load('jspdf.min.js'); await load('jspdf-autotable.min.js'); await load('qrcode.min.js'); };
 
-function qrPng(text) {
+export function qrPng(text) {
   const q = window.qrcode(0, 'M'); q.addData(text); q.make();
   const n = q.getModuleCount(), s = 6, c = document.createElement('canvas'); c.width = c.height = (n + 2) * s;
   const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.fillStyle = '#0d3220';
@@ -36,7 +36,8 @@ export async function familyCardPdf(fam, rows, ageOf = ageText) {
   doc.setFontSize(14); doc.setTextColor(255, 255, 255); T(B.header_line1 || 'CHHIPA JAMAT BARAR WELFARE SOCIETY', W / 2, 13, { align: 'center' });
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(200, 225, 200); T(B.header_line2 || 'Chandur Bazar, Maharashtra  -  All India', W / 2, 20, { align: 'center' });
   const code = fam.family_code || 'PENDING';
-  try { doc.addImage(qrPng('CJBWS|' + (hm ? hm.full_name : '') + '|ID:' + code), 'PNG', W - 24, 2, 20, 20); } catch (e) {}
+  doc.setFillColor(255, 255, 255); doc.setDrawColor(...GO); doc.setLineWidth(.4); doc.roundedRect(W - 30, 4, 20, 20, 1.5, 1.5, 'FD');   // white frame, same 10 mm side margin as the logo
+  try { doc.addImage(qrPng('CJBWS|' + (hm ? hm.full_name : '') + '|ID:' + code), 'PNG', W - 28.5, 5.5, 17, 17, undefined, 'FAST'); } catch (e) {}
   doc.setFillColor(...DG); doc.rect(2, 26, W - 4, 9, 'F'); doc.setDrawColor(...GO); doc.setLineWidth(.5); doc.line(2, 26, W - 2, 26); doc.line(2, 35, W - 2, 35);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(255, 255, 255); T('FAMILY CARD', W / 2, 32, { align: 'center' });
   doc.setFillColor(255, 255, 255); doc.rect(2, 35, W - 4, 42, 'F'); doc.setDrawColor(...GO); doc.setLineWidth(.3); doc.rect(2, 35, W - 4, 42, 'S');
@@ -55,7 +56,7 @@ export async function familyCardPdf(fam, rows, ageOf = ageText) {
   lab('Mobile (Head of Family)', 137, 43); val(mob, 137, 50, 11); lab('City / Taluka / State', 137, 59);
   val([fam.locations.city, fam.taluka, fam.locations.state].filter(Boolean).join(' / '), 137, 65);
   lab('Gotra', 224, 43); val(fam.gotra || '—', 224, 50, 11); lab('Family Type', 224, 59); val(fam.family_type || '—', 224, 65, 10);
-  try { doc.addImage('stamp.png', 'PNG', W - 44, 37, 36, 34, undefined, 'FAST'); } catch (e) {}  // official stamp image stays on the card
+  try { doc.addImage('stamp.png', 'PNG', W - 38, 47, 26, 25, undefined, 'FAST'); } catch (e) {}  // official stamp image stays on the card
   doc.setFillColor(...DG); doc.roundedRect(W / 2 - 32, 79, 64, 8, 2, 2, 'F'); doc.setDrawColor(...GO); doc.setLineWidth(.4); doc.roundedRect(W / 2 - 32, 79, 64, 8, 2, 2, 'S');
   doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(255, 255, 255); T('MEMBERS (' + rows.length + ')', W / 2, 84.5, { align: 'center' });
   const d = v => v || '—';

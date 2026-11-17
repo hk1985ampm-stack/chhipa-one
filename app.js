@@ -19,7 +19,12 @@ const ROUTES = {
   excel: () => import('./excel.js'),
   backup: () => import('./backup.js'),
   reports: () => import('./reports.js'),
-  tools: () => import('./tools.js')
+  tools: () => import('./tools.js'),
+  requests: () => import('./requests.js'),
+  activity: () => import('./activity.js'),
+  print: () => import('./printcenter.js'),
+  scan: () => import('./scanner.js'),
+  reminders: () => import('./reminders.js')
 };
 const root = document.getElementById('app');
 
@@ -72,10 +77,10 @@ async function render() {
     h('header', { class: 'bar' },
       route ? h('button', { onclick: () => (location.hash = '') }, '← Home') : logoImg(40),
       h('div', { class: 'ttl' }, h('h1', {}, 'Chhipa One'), brandSub() ? h('small', {}, brandSub().toUpperCase()) : null),
-      h('span', { class: 'muted', style: 'color:#d6efe5;font-size:13px' }, ROLE_LABEL[state.profile.role]),
+      h('span', { class: 'muted', style: 'color:#d6efe5;font-size:13px' }, ROLE_LABEL[state.profile.role] + (state.profile.read_only ? ' · View only' : '')),
       h('button', { onclick: () => sb.auth.signOut() }, 'Sign out')),
     main,
-    h('nav', { class: 'bnav noprint' }, [['', '🏠', 'Home'], ['registry', '👨‍👩‍👧', 'Families'], ['add', '➕', 'Add'], ['notifications', '🔔', 'Alerts']].map(([r, i, t]) =>
+    h('nav', { class: 'bnav noprint' }, [['', '🏠', 'Home'], ['registry', '👨‍👩‍👧', 'Families'], ...(state.profile.read_only ? [] : [['add', '➕', 'Add']]), ['notifications', '🔔', 'Alerts']].map(([r, i, t]) =>
       h('a', { href: '#' + r, class: route === r ? 'on' : '' }, h('span', {}, i), t))));
   try { await mod.render(main, arg); } catch (e) { main.replaceChildren(h('p', { class: 'err' }, 'Could not load this page. ' + (e.message || ''))); }
 }
