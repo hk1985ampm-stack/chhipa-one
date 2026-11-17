@@ -17,7 +17,8 @@ const ROUTES = {
   lists: () => import('./lists.js'),
   excel: () => import('./excel.js'),
   backup: () => import('./backup.js'),
-  reports: () => import('./reports.js')
+  reports: () => import('./reports.js'),
+  tools: () => import('./tools.js')
 };
 const root = document.getElementById('app');
 
