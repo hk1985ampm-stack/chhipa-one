@@ -116,3 +116,6 @@ main a.hb{color:#fff}main .hero-links a{color:#d6f3e6}.hb.off{color:#fff}
 .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:10px}
 .st{background:#f3fbf7;border:1px solid #cfe9dc;border-radius:12px;padding:8px 2px;text-align:center}.st b{display:block;font-size:18px}.st span{font-size:11px;color:var(--mu)}
 main .backlink a{color:var(--g);font-weight:600;text-decoration:none}.backlink{margin:0 0 10px}
+
+.obx{top:auto;bottom:72px;position:fixed;left:12px;right:12px;border-radius:12px;cursor:pointer;background:#0b5d9e}
+.offl{background:#fff7e0;border-color:#e7c15a;font-weight:600}

@@ -46,11 +46,14 @@ export const isApprover = () => ['super_admin', 'location_admin'].includes(state
 export const field = (label, el) => h('div', {}, h('label', {}, label), el);
 export const pill = st => h('span', { class: 'pill ' + st }, st);
 export async function myLocations() {
-  if (state.profile.role === 'super_admin') {
-    const { data } = await sb.from('locations').select('id,code,city').order('city'); return data || [];
-  }
-  const { data } = await sb.from('user_locations').select('locations(id,code,city)').eq('user_id', state.profile.user_id);
-  return (data || []).map(x => x.locations).filter(Boolean);
+  const k = 'chhipa_locs_' + state.profile.user_id;   // remembered so Add Family also works without internet
+  const r = state.profile.role === 'super_admin'
+    ? await sb.from('locations').select('id,code,city').eq('status', 'active').order('city')
+    : await sb.from('user_locations').select('locations(id,code,city,status)').eq('user_id', state.profile.user_id);
+  if (r.error) { try { return JSON.parse(localStorage.getItem(k)) || []; } catch { return []; } }
+  const list = state.profile.role === 'super_admin' ? (r.data || []) : (r.data || []).map(x => x.locations).filter(x => x && x.status !== 'archived');
+  try { localStorage.setItem(k, JSON.stringify(list)); } catch {}
+  return list;
 }
 
 // Managed dropdown lists (Super Admin edits them). Cached so forms still work offline.

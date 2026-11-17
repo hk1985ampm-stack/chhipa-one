@@ -1,3 +1,4 @@
+import { cached, kvGet } from './offline.js';
 import { sb, h, hi, toast, friendly, pill, state } from './core.js';
 
 export async function render(main, arg) {
@@ -11,11 +12,16 @@ export async function render(main, arg) {
   let timer, seq = 0;
   const run = async () => {
     const my = ++seq;
-    const { data, error } = await sb.rpc('registry_search', { p_q: q.value.trim() || null, p_status: status || null });
+    let { data, error, offline } = await cached(q.value.trim() || status ? 'reg_q' : 'reg_all', () => sb.rpc('registry_search', { p_q: q.value.trim() || null, p_status: status || null }));
     if (my !== seq) return;
+    if (offline) {   // no internet: search the copy saved on this phone
+      const all = (await kvGet('reg_all')) || [], s = q.value.trim().toLowerCase();
+      data = all.filter(f => (!status || f.status === status) && (!s || [f.family_code, f.head_name, f.city, f.address].some(x => (x || '').toLowerCase().includes(s)))); error = null;
+      if (!all.length) return out.replaceChildren(h('div', { class: 'card muted' }, 'No internet, and nothing saved on this phone yet. Open the registry once while online.'));
+    }
     if (error) return out.replaceChildren(h('p', { class: 'err' }, friendly(error)));
     if (!data.length) return out.replaceChildren(h('div', { class: 'card muted' }, q.value || status ? 'No matching family found.' : 'No families yet. Tap “+ Add Family” to register the first one.'));
-    out.replaceChildren(h('div', { class: 'print-title' }, 'Family Registry · ' + new Date().toLocaleDateString() + ' · ' + data.length + ' families'), ...data.map(f => h('div', { class: 'card fam' },
+    out.replaceChildren(...(offline ? [h('div', { class: 'card offl' }, '📴 Offline · showing the copy saved on this phone')] : []), h('div', { class: 'print-title' }, 'Family Registry · ' + new Date().toLocaleDateString() + ' · ' + data.length + ' families'), ...data.map(f => h('div', { class: 'card fam' },
       h('a', { href: '#family/' + f.family_id },
         h('div', { class: 'item' }, h('b', {}, f.family_code || 'ID on approval'), pill(f.status)),
         h('div', {}, f.head_name || '—', ' · ', f.city),

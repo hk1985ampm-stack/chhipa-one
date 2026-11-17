@@ -1,6 +1,7 @@
 import { sb, h, hi, toast, friendly, pill, age, isApprover, field, ageText } from './core.js';
 import { REL_LABELS } from './options.js';
 import { memberForm, selectOther } from './memberform.js';
+import { cached } from './offline.js';
 import { photoUrl, pickPhoto } from './photo.js';
 import { familyCardPdf } from './pdf.js';
 const initials = n => (n || '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
@@ -11,10 +12,11 @@ const today = () => new Date().toISOString().slice(0, 10);
 const REASON = { married: 'Married — moved to husband’s family', divorced: 'Divorced — left this family', separated: 'Separated — left this family', branch: 'Moved to a separate household' };
 
 export async function render(main, id) {
-  const [f, ms, hs] = await Promise.all([
-    sb.from('families').select('*, locations(code,city,state)').eq('id', id).maybeSingle(),
-    sb.from('family_memberships').select('id,relation,is_active,end_date,reason,created_at, members(id,member_code,full_name,father_name,gender,dob,birth_year_est,photo_path,status,education,occupation,marital_status,record_state, member_contacts(mobile))').eq('family_id', id),
-    sb.from('family_history').select('*').eq('family_id', id).order('created_at', { ascending: false })]);
+  const q1 = () => sb.from('families').select('*, locations(code,city,state)').eq('id', id).maybeSingle();
+  const q2 = () => sb.from('family_memberships').select('id,relation,is_active,end_date,reason,created_at, members(id,member_code,full_name,father_name,gender,dob,birth_year_est,photo_path,status,education,occupation,marital_status,record_state, member_contacts(mobile))').eq('family_id', id);
+  const q3 = () => sb.from('family_history').select('*').eq('family_id', id).order('created_at', { ascending: false });
+  const [f, ms, hs] = await Promise.all([cached('fam_' + id, q1), cached('mem_' + id, q2), cached('his_' + id, q3)]);
+  const offline = f.offline || ms.offline;
   if (f.error || ms.error) throw (f.error || ms.error);
   if (!f.data) return main.append(h('p', { class: 'err' }, 'Family not found, or you do not have access.'));
   const fam = f.data, reload = () => { main.replaceChildren(); render(main, id); };
@@ -144,13 +146,13 @@ export async function render(main, id) {
       error ? (b.disabled = false, toast(friendly(error))) : (toast('Member added'), reload()); })));
   }
 
-  const canEdit = isApprover() && fam.status === 'approved';
+  const canEdit = isApprover() && fam.status === 'approved' && !offline;
   const headRow = rows.find(r => r.relation === 'head');
   const headGone = headRow && headRow.members.status === 'deceased' && canEdit;
 
   // per-member "Life event" menu
   const menu = r => {
-    const m = r.members; if (!live(r) || fam.status !== 'approved') return null;
+    const m = r.members; if (!live(r) || fam.status !== 'approved' || offline) return null;
     const mr = marriages.find(x => x.record_state === 'approved' && [x.member1_id, x.member2_id].includes(m.id) && ['married', 'separated'].includes(x.status));
     const o = [];
     if (!mr && !['Married', 'Separated'].includes(m.marital_status)) o.push(['marriage', 'Marriage · विवाह']);
@@ -192,6 +194,7 @@ export async function render(main, id) {
       tile('Active members', String(active) + ' of ' + rows.length), fam.quote ? tile('Footer quote', fam.quote) : null, h('div', { class: 'it wide' }, h('span', {}, 'Address'), h('b', {}, fam.address || '—'))));
 
   main.append(...[
+    offline ? h('div', { class: 'card offl' }, '📴 Offline · showing the copy saved on this phone (read only)') : null,
     heroCard(),
     infoGrid(),
     canEdit ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn alt', onclick: editFam }, 'Edit details'), h('button', { class: 'btn', onclick: addMember }, '+ Add member'), h('button', { class: 'btn alt', onclick: headForm }, 'Change head')) : null,

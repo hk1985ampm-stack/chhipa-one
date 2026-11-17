@@ -1,9 +1,10 @@
+import { enqueue, isNetErr } from './offline.js';
 import { sb, h, hi, toast, friendly, state, digits, myLocations, isApprover, field, optList } from './core.js';
 import { REL_LABELS } from './options.js';
 import { memberForm, selectOther } from './memberform.js';
 
 const key = () => 'chhipa_family_draft_' + state.profile.user_id;
-const blank = () => ({ step: 1, location_id: '', address: '', gotra: '', family_type: '', phone: '', members: [{ relation: 'head' }] });
+const blank = () => ({ client_ref: crypto.randomUUID(), step: 1, location_id: '', address: '', gotra: '', family_type: '', phone: '', members: [{ relation: 'head' }] });
 const relLabel = r => REL_LABELS[r] || r;
 
 export async function render(main) {
@@ -110,8 +111,13 @@ export async function render(main) {
     const btn = h('button', { class: 'btn' }, isApprover() ? 'Save & approve' : 'Submit for approval');
     btn.addEventListener('click', async () => {
       btn.disabled = true;
-      const payload = { location_id: S.location_id, address: S.address, gotra: S.gotra, family_type: S.family_type, phone: S.phone, taluka: S.taluka, pincode: S.pincode, house_type: S.house_type, members: S.members };
+      if (!S.client_ref) { S.client_ref = crypto.randomUUID(); save(); }
+      const payload = { client_ref: S.client_ref, location_id: S.location_id, address: S.address, gotra: S.gotra, family_type: S.family_type, phone: S.phone, taluka: S.taluka, pincode: S.pincode, house_type: S.house_type, members: S.members };
       const { data, error } = await sb.rpc('family_create', { p: payload });
+      if (error && isNetErr(error)) {   // no internet: keep it safely and upload automatically later
+        await enqueue(payload); localStorage.removeItem(key());
+        toast('Saved on this phone. It will upload when the internet returns.'); location.hash = 'registry'; return;
+      }
       if (error) { btn.disabled = false; return toast(friendly(error)); }
       localStorage.removeItem(key());
       toast(data.status === 'approved' ? 'Saved. Family ID ' + data.family_code : 'Submitted for approval');
@@ -132,5 +138,6 @@ export async function render(main) {
       h('div', { class: 'actions' },
         h('button', { class: 'btn alt', onclick: () => { S = blank(); save(); step(); } }, 'Start new'),
         h('button', { class: 'btn', onclick: step }, 'Continue'))));
-  } else { if (!S || !Array.isArray(S.members) || !S.members.length || !S.step) S = blank(); step(); }
+  } else { if (!S || !Array.isArray(S.members) || !S.members.length || !S.step) S = blank();
+    if (!S.client_ref) S.client_ref = crypto.randomUUID(); step(); }
 }

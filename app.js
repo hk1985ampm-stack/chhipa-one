@@ -1,5 +1,6 @@
+import { initOutbox, onOutbox, outbox, flush, kvGet, kvSet, isNetErr, cached } from './offline.js';
 import { CONFIG } from './config.js';
-import { sb, h, hi, state, toast, ROLE_LABEL, loadOptions } from './core.js';
+import { sb, h, hi, state, toast, ROLE_LABEL, loadOptions, myLocations } from './core.js';
 
 const ROUTES = {
   '': () => import('./home.js'),
@@ -74,13 +75,23 @@ async function render() {
   try { await mod.render(main, arg); } catch (e) { main.replaceChildren(h('p', { class: 'err' }, 'Could not load this page. ' + (e.message || ''))); }
 }
 
+// Remember the registry on this phone so it opens without internet.
+async function prefetch() {
+  if (!navigator.onLine) return;
+  try { await myLocations(); await cached('reg_all', () => sb.rpc('registry_search', { p_q: null, p_status: null })); } catch {}
+}
+document.getElementById('obx').addEventListener('click', () => flush());
+onOutbox(n => { const b = document.getElementById('obx'); if (b) { b.hidden = !n; b.textContent = n + ' waiting to upload · ' + (navigator.onLine ? 'tap to retry' : 'no internet'); } });
+
 async function boot(session) {
   state.profile = null;
   if (!session) return loginView();
-  const { data, error } = await sb.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
+  let { data, error } = await sb.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
+  if (error && isNetErr(error)) { data = await kvGet('profile_' + session.user.id); error = data ? null : error; }
+  else if (data) kvSet('profile_' + session.user.id, data);
   if (error || !data) return blockedView('Your login is not yet activated. Please ask the Super Admin to add you as staff.');
   if (data.status !== 'active') return blockedView('Your account is ' + data.status + '. Please contact the Super Admin.');
-  state.profile = data; armIdle(); await loadOptions(); render();
+  state.profile = data; armIdle(); await loadOptions(); render(); initOutbox(); prefetch();
 }
 
 // Switching browser tabs makes Supabase re-announce the same session. Only react when the user really changes
