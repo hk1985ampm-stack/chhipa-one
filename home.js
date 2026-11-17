@@ -1,6 +1,6 @@
 import { sb, h, hi, state } from './core.js';
 
-const APP_VERSION = 'v5 · Phase 4';
+const APP_VERSION = 'v6 · Phase 5';
 const tile = (href, en, hindi, soon, badge) =>
   h(soon ? 'div' : 'a', { class: 'tile' + (soon ? ' soon' : ''), href: soon ? null : href },
     h('span', {}, en), h('span', { class: 'hi' }, hindi), soon ? h('span', { class: 'tag' }, 'Coming in Phase ' + soon) : null, badge ? h('span', { class: 'badge' }, String(badge)) : null);

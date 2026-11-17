@@ -168,7 +168,7 @@ export async function render(main, id) {
       head_change: `Family head changed to ${names[d.new] || n}${d.reason ? ' (' + d.reason + ')' : ''}`, branch_created: `${n} started a separate household ${d.new_code || ''}`, branch_origin: `${n}'s household began from family ${d.parent_code || ''}` })[x.event] || x.event; };
 
   main.append(...[
-    h('p', {}, h('a', { href: '#registry' }, '← Registry')),
+    h('div', { class: 'actions noprint' }, h('a', { class: 'btn alt', href: '#registry' }, '← Registry'), h('a', { class: 'btn', href: '#card/' + id }, '🖨 View / Print')),
     h('div', { class: 'card' }, h('div', { class: 'item' }, h('h2', { style: 'margin:0' }, fam.family_code || 'Family ID on approval'), pill(fam.status)),
       h('div', {}, fam.locations.city, ', ', fam.locations.state), fam.address ? h('div', {}, fam.address) : null,
       h('div', { class: 'muted' }, [fam.gotra && 'Gotra ' + fam.gotra, fam.family_type, fam.phone].filter(Boolean).join(' · ')),
@@ -179,7 +179,7 @@ export async function render(main, id) {
     h('h3', {}, 'Members · सदस्य'),
     ...rows.map(r => { const m = r.members, hist = !live(r);
       return h('div', { class: 'card mem' + (hist ? ' grey' : '') },
-        h('div', { class: 'item' }, h('span', {}, h('b', {}, m.full_name), ' · ', relLabel(r.relation)), m.member_code ? h('span', { class: 'muted' }, m.member_code) : pill(m.record_state)),
+        h('div', { class: 'item' }, h('span', {}, h('b', {}, m.full_name), ' · ', relLabel(r.relation)), m.member_code ? h('span', { class: 'muted nowrap' }, m.member_code) : pill(m.record_state)),
         h('div', { class: 'muted', style: 'font-size:14px' }, [m.gender, ageText(m), m.marital_status, m.education, m.occupation, mobile(m),
           m.status === 'deceased' ? 'Deceased' : hist ? (REASON[r.reason] || 'Historical') : null].filter(Boolean).join(' · ')),
         menu(r)); }),
