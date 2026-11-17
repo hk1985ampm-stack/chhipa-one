@@ -1,3 +1,4 @@
+import { lang, UR } from './i18n.js';
 import { CONFIG } from './config.js';
 
 export const sb = window.supabase.createClient(CONFIG.url, CONFIG.key, {
@@ -14,10 +15,10 @@ export function h(tag, props = {}, ...kids) {
     else if (k === 'value') n.value = v;
     else n.setAttribute(k, v === true ? '' : v);
   }
-  for (const kid of kids.flat()) if (kid != null && kid !== false) n.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  for (const kid of kids.flat(Infinity)) if (kid != null && kid !== false) n.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
   return n;
 }
-export const hi = (en, hindi) => [en, ' ', h('small', { class: 'hi' }, hindi)];
+export const hi = (en, hindi) => [h('span', { class: 'en' }, en), ' ', h('small', { class: 'hi' }, lang.v === 'ur' ? (UR[en] || hindi) : hindi)];
 
 let tt;
 export function toast(msg) {
@@ -68,3 +69,9 @@ export async function loadOptions() {
   try { state.opts = JSON.parse(localStorage.getItem('chhipa_opts')) || {}; } catch { state.opts = {}; }
 }
 export const optList = k => (state.opts[k] && state.opts[k].length ? state.opts[k] : DEFAULTS[k] || []);
+
+// Native append/replaceChildren print "null"/"false" for empty slots; make them skip those, like h() does.
+for (const m of ['append', 'prepend', 'replaceChildren']) {
+  const orig = Element.prototype[m];
+  Element.prototype[m] = function (...a) { return orig.apply(this, a.flat(Infinity).filter(x => x != null && x !== false)); };
+}

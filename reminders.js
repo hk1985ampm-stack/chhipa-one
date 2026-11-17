@@ -29,7 +29,7 @@ async function loadBirthdays(loc, days) {
 export async function render(main) {
   const org = (brand.data && (brand.data.short_name || brand.data.name)) || 'Chhipa Jamat', locs = await myLocations();
   const loc = h('select', {}, h('option', { value: '' }, 'All locations'), locs.map(l => h('option', { value: l.id }, l.city))), days = h('select', {}, [['0', 'Today'], ['7', 'Next 7 days'], ['30', 'Next 30 days']].map(([v, t]) => h('option', { value: v, selected: v === '7' }, t)));
-  const tab = h('div', { class: 'seg' }), out = h('div'); let mode = 'birthday', tmpl = h('textarea', { rows: 4 }), custom = h('textarea', { rows: 3, placeholder: 'Message text for Broadcast' });
+  const tab = h('div', { class: 'chips' }), out = h('div'); let mode = 'birthday', tmpl = h('textarea', { rows: 4 }), custom = h('textarea', { rows: 3, placeholder: 'Message text for Broadcast' });
   const setMode = m => { mode = m; tmpl.value = TPL[m]; draw(); };
   const row = (r, text, sub) => { const url = wa(r.mobile, fill(text, { name: r.name, org, text: custom.value })); return h('div', { class: 'card', style: 'display:flex;gap:8px;align-items:center;justify-content:space-between' }, h('div', {}, h('b', {}, r.name), h('div', { class: 'muted' }, sub)), url ? h('a', { class: 'btn', href: url, target: '_blank', rel: 'noopener' }, '💬 WhatsApp') : h('small', { class: 'muted' }, 'No mobile')); };
   async function draw() {

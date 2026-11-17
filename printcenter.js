@@ -20,5 +20,5 @@ export async function render(main) {
   main.append(h('h2', {}, hi('Print Center', 'प्रिंट सेंटर')),
     h('div', { class: 'card' }, h('label', {}, 'Location'), loc, h('label', { class: 'chk' }, photos, ' Include photos on ID cards (slower)')),
     h('div', { class: 'card' }, h('label', {}, 'Notice / attendance title'), title, h('label', {}, 'Date'), date, h('label', {}, 'Notice text'), body),
-    h('div', { class: 'tiles' }, DOCS.map(([k, t, d]) => h('button', { class: 'tile', onclick: () => go(k) }, h('b', {}, t), h('small', {}, d)))), msg);
+    h('div', { class: 'grid' }, DOCS.map(([k, t, d]) => h('button', { class: 'tile', onclick: () => go(k) }, h('b', {}, t), h('small', {}, d)))), msg);
 }

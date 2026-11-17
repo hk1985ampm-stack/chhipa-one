@@ -1,10 +1,11 @@
 import { sb, h, hi, state, ROLE_LABEL } from './core.js';
+import { lang, UR } from './i18n.js';
 import { logoImg, brandName, brandSub, brand } from './brand.js';
 
-const APP_VERSION = 'v17 · Print, Scan & Reminders';
+const APP_VERSION = 'v18 · Welfare, Community & Language';
 const tile = (href, en, hindi, soon, badge) =>
   h(soon ? 'div' : 'a', { class: 'tile' + (soon ? ' soon' : ''), href: soon ? null : href },
-    h('span', {}, en), h('span', { class: 'hi' }, hindi), soon ? h('span', { class: 'tag' }, 'Coming in Phase ' + soon) : null, badge ? h('span', { class: 'badge' }, String(badge)) : null);
+    h('span', { class: 'en' }, en), h('span', { class: 'hi' }, lang.v === 'ur' ? (UR[en] || hindi) : hindi), soon ? h('span', { class: 'tag' }, 'Coming in Phase ' + soon) : null, badge ? h('span', { class: 'badge' }, String(badge)) : null);
 
 export async function render(main) {
   let unread = 0, pend = 0;
@@ -14,12 +15,14 @@ export async function render(main) {
   } catch {}
   const p = state.profile, sup = p.role === 'super_admin', appr = ['super_admin', 'location_admin'].includes(p.role);
   const SECTIONS = [
-    ['families', '👨‍👩‍👧 Families', [
+    ['families', ['👨‍👩‍👧 ', hi('Families', 'परिवार')], [
       tile('#registry', 'Family Registry', 'परिवार रजिस्टर'), p.read_only ? null : tile('#add', 'Add Family', 'परिवार जोड़ें'), p.read_only ? null : tile('#requests', 'Change Requests', 'बदलाव अनुरोध'),
       tile('#events', 'Life Events', 'जीवन घटनाएँ'), tile('#notifications', 'Notifications', 'सूचनाएँ', false, unread),
       tile('#reports', 'Reports', 'रिपोर्ट'), tile('#reports/quality', 'Data Quality', 'डेटा जाँच'),
       appr ? tile('#registry/removed', 'Removed Entries', 'हटाई गई प्रविष्टियाँ') : null]],
-    ...(appr ? [['office', '🏢 Office', [
+    ['welfare', ['💚 ', hi('Welfare', 'कल्याण')], [appr ? tile('#donations', 'Annual Donation', 'वार्षिक चंदा') : null, tile('#zakat', 'Zakat Calculator', 'ज़कात कैलकुलेटर')]],
+    ['community', ['🤝 ', hi('Community', 'समुदाय')], [tile('#announce', 'Announcements', 'घोषणाएँ'), tile('#cevents', 'Events', 'कार्यक्रम'), tile('#meetings', 'Meetings', 'बैठक'), tile('#sevaks', 'Sevaks', 'सेवक')]],
+    ...(appr ? [['office', ['🏢 ', hi('Office', 'कार्यालय')], [
       tile('#registry/pending', 'Pending Approvals', 'लंबित स्वीकृति', false, pend),
       sup ? tile('#communities', 'Communities', 'समुदाय') : null, sup ? tile('#staff', 'Staff & Agents', 'स्टाफ / एजेंट') : null,
       tile('#activity', 'Agent Activity', 'एजेंट गतिविधि'), tile('#scan', 'Scan QR', 'क्यू आर स्कैन'), tile('#reminders', 'Birthdays & WhatsApp', 'रिमाइंडर'), (sup || p.can_export || ['location_admin'].includes(p.role)) ? tile('#print', 'Print Center', 'प्रिंट सेंटर') : null, tile('#excel', 'Excel Import / Export', 'एक्सेल'), tile('#tools', 'Duplicates & Bulk Edit', 'डुप्लिकेट / बल्क एडिट'), sup ? tile('#lists', 'Dropdown Lists', 'ड्रॉपडाउन सूची') : null, sup ? tile('#backup', 'Backup', 'बैकअप') : null, sup ? tile('#audit', 'Audit Log', 'ऑडिट लॉग') : null]]] : [])];
@@ -30,6 +33,8 @@ export async function render(main) {
     body.replaceChildren(h('div', { class: 'grid' }, SECTIONS.find(s => s[0] === cur)[2].filter(Boolean)));
   };
   draw();
+  const ann = h('div');
+  { const t = new Date().toISOString().slice(0, 10); sb.from('announcements').select('title,body,pinned').lte('starts_on', t).or('ends_on.is.null,ends_on.gte.' + t).order('pinned', { ascending: false }).order('starts_on', { ascending: false }).limit(3).then(({ data }) => { if (data && data.length) ann.replaceChildren(...data.map(a => h('a', { href: '#announce', class: 'card ann' }, h('b', {}, (a.pinned ? '📌 ' : '📣 ') + a.title), a.body ? h('div', { class: 'muted' }, a.body.length > 120 ? a.body.slice(0, 120) + '…' : a.body) : null))); }); }
   const bk = h('a', { href: '#backup', class: 'card muted', style: 'display:block;font-size:13px' }, 'Backup: checking…');
   if (sup) sb.from('backup_log').select('kind,created_at').eq('status', 'ok').order('created_at', { ascending: false }).limit(1).then(({ data }) => {
     const d = data && data[0]; if (!d) { bk.textContent = '⚠ No backup yet — tap to take one'; bk.style.color = '#b3261e'; return; }
@@ -37,9 +42,9 @@ export async function render(main) {
     bk.textContent = (days > 7 ? '⚠ ' : '✔ ') + 'Last backup: ' + (days === 0 ? 'today' : days + ' day(s) ago') + ' (' + d.kind + ')'; if (days > 7) bk.style.color = '#b3261e';
   });
   main.append(h('div', { class: 'hero' }, logoImg(64), h('div', {}, h('b', {}, brandName()), brandSub() ? h('small', {}, brandSub()) : null, h('div', { class: 'gold' }, (brand.data && brand.data.estd ? 'ESTD ' + brand.data.estd + ' · ' : '') + (ROLE_LABEL[p.role] || '').toUpperCase()))),
-    h('h2', {}, 'Welcome, ' + p.full_name),
-    h('div', { class: 'card' }, h('input', { type: 'search', placeholder: 'Search name, Family ID, Member ID, mobile… · खोजें', onfocus: () => (location.hash = 'registry') })),
-    sup ? bk : null,
-    SECTIONS.length > 1 ? tabs : null, body,
+    h('h2', {}, hi('Welcome', 'स्वागत है'), ', ' + p.full_name),
+    h('div', { class: 'card' }, h('input', { type: 'search', placeholder: 'Search name, ID, mobile… · खोजें', onfocus: () => (location.hash = 'registry') })),
+    ann, sup ? bk : [],
+    SECTIONS.length > 1 ? tabs : [], body,
     h('p', { class: 'muted', style: 'text-align:center;font-size:12px;margin-top:18px' }, 'Chhipa One · ' + APP_VERSION));
 }

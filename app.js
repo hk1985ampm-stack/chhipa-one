@@ -1,5 +1,7 @@
 import { initOutbox, onOutbox, outbox, flush, kvGet, kvSet, isNetErr, cached } from './offline.js';
 import { CONFIG } from './config.js';
+import { lang, LANGS, setLang, nextLang, applyLang } from './i18n.js';
+applyLang();
 import { brand, loadBrand, logoImg, brandName, brandSub } from './brand.js';
 import { sb, h, hi, state, toast, ROLE_LABEL, loadOptions, myLocations } from './core.js';
 
@@ -24,7 +26,13 @@ const ROUTES = {
   activity: () => import('./activity.js'),
   print: () => import('./printcenter.js'),
   scan: () => import('./scanner.js'),
-  reminders: () => import('./reminders.js')
+  reminders: () => import('./reminders.js'),
+  donations: () => import('./donations.js'),
+  zakat: () => import('./zakat.js'),
+  meetings: () => import('./meetings.js'),
+  sevaks: () => import('./sevaks.js'),
+  announce: () => import('./announce.js'),
+  cevents: () => import('./cevents.js')
 };
 const root = document.getElementById('app');
 
@@ -68,20 +76,24 @@ function blockedView(msg) {
 }
 
 // ---- shell + router
+let renderId = 0;
 async function render() {
+  const my = ++renderId;
   const [route, arg] = location.hash.replace(/^#\/?/, '').split('/');
   const loader = ROUTES[route] || ROUTES[''];
   const mod = await loader();
+  if (my !== renderId) return;   // a newer navigation already started
   const main = h('main');
   root.replaceChildren(
     h('header', { class: 'bar' },
       route ? h('button', { onclick: () => (location.hash = '') }, '← Home') : logoImg(40),
       h('div', { class: 'ttl' }, h('h1', {}, 'Chhipa One'), brandSub() ? h('small', {}, brandSub().toUpperCase()) : null),
-      h('span', { class: 'muted', style: 'color:#d6efe5;font-size:13px' }, ROLE_LABEL[state.profile.role] + (state.profile.read_only ? ' · View only' : '')),
-      h('button', { onclick: () => sb.auth.signOut() }, 'Sign out')),
+      h('span', { class: 'role' }, ROLE_LABEL[state.profile.role] + (state.profile.read_only ? ' · View only' : '')),
+      h('button', { onclick: () => { setLang(nextLang()); render(); }, title: 'Language' }, LANGS.find(l => l[0] === lang.v)[1]),
+      h('button', { onclick: () => sb.auth.signOut() }, hi('Sign out', 'साइन आउट'))),
     main,
-    h('nav', { class: 'bnav noprint' }, [['', '🏠', 'Home'], ['registry', '👨‍👩‍👧', 'Families'], ...(state.profile.read_only ? [] : [['add', '➕', 'Add']]), ['notifications', '🔔', 'Alerts']].map(([r, i, t]) =>
-      h('a', { href: '#' + r, class: route === r ? 'on' : '' }, h('span', {}, i), t))));
+    h('nav', { class: 'bnav noprint' }, [['', '🏠', 'Home', 'होम'], ['registry', '👨‍👩‍👧', 'Families', 'परिवार'], ...(state.profile.read_only ? [] : [['add', '➕', 'Add', 'जोड़ें']]), ['notifications', '🔔', 'Alerts', 'सूचना']].map(([r, i, t, hd]) =>
+      h('a', { href: '#' + r, class: route === r ? 'on' : '' }, h('span', { class: 'ic' }, i), h('b', {}, hi(t, hd))))));
   try { await mod.render(main, arg); } catch (e) { main.replaceChildren(h('p', { class: 'err' }, 'Could not load this page. ' + (e.message || ''))); }
 }
 

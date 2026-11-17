@@ -38,7 +38,7 @@ export async function render(main, arg) {
       list.replaceChildren(h('p', { class: 'muted' }, 'Loading…'));
       const { data, error: e } = await sb.rpc('data_quality', { p_kind: k, p_location: loc(), p_limit: 200 }); if (e) return toast(friendly(e));
       list.replaceChildren(...(data.length ? data.map(x => h('a', { class: 'card item', href: '#family/' + x.family_id }, h('span', {}, h('b', {}, x.name), h('div', { class: 'muted s' }, [x.family_code, x.member_code, x.location].filter(Boolean).join(' · '))), h('span', { class: 'muted s' }, '›'))) : [h('div', { class: 'card' }, '✔ Nothing to fix here')]),
-        data.length >= 200 ? h('p', { class: 'muted s' }, 'Showing the first 200.') : null);
+        data.length >= 200 ? h('p', { class: 'muted s' }, 'Showing the first 200.') : []);
     };
     body.replaceChildren(h('p', { class: 'muted s' }, 'Tap a check to see the records to fix. Tap a record to open and edit it.'),
       h('div', { class: 'stats' }, KINDS.map(([k, en, hindi]) => h('button', { class: 'st', style: 'cursor:pointer;border:0', onclick: () => show(k) }, h('b', {}, String(c[k])), h('span', {}, en)))), list);
