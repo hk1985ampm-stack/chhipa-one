@@ -1,6 +1,6 @@
 import { sb, h, hi, state } from './core.js';
 
-const APP_VERSION = 'v11 · Excel Import / Export';
+const APP_VERSION = 'v12 · Backup';
 const tile = (href, en, hindi, soon, badge) =>
   h(soon ? 'div' : 'a', { class: 'tile' + (soon ? ' soon' : ''), href: soon ? null : href },
     h('span', {}, en), h('span', { class: 'hi' }, hindi), soon ? h('span', { class: 'tag' }, 'Coming in Phase ' + soon) : null, badge ? h('span', { class: 'badge' }, String(badge)) : null);
@@ -20,7 +20,7 @@ export async function render(main) {
     ...(appr ? [['office', '🏢 Office', [
       tile('#registry/pending', 'Pending Approvals', 'लंबित स्वीकृति', false, pend),
       sup ? tile('#communities', 'Communities', 'समुदाय') : null, sup ? tile('#staff', 'Staff & Agents', 'स्टाफ / एजेंट') : null,
-      tile('#excel', 'Excel Import / Export', 'एक्सेल'), sup ? tile('#lists', 'Dropdown Lists', 'ड्रॉपडाउन सूची') : null, sup ? tile('#audit', 'Audit Log', 'ऑडिट लॉग') : null]]] : [])];
+      tile('#excel', 'Excel Import / Export', 'एक्सेल'), sup ? tile('#lists', 'Dropdown Lists', 'ड्रॉपडाउन सूची') : null, sup ? tile('#backup', 'Backup', 'बैकअप') : null, sup ? tile('#audit', 'Audit Log', 'ऑडिट लॉग') : null]]] : [])];
   let cur = sessionStorage.getItem('home_tab'); if (!SECTIONS.some(s => s[0] === cur)) cur = 'families';
   const body = h('div'), tabs = h('div', { class: 'chips' });
   const draw = () => {
@@ -28,8 +28,15 @@ export async function render(main) {
     body.replaceChildren(h('div', { class: 'grid' }, SECTIONS.find(s => s[0] === cur)[2].filter(Boolean)));
   };
   draw();
+  const bk = h('a', { href: '#backup', class: 'card muted', style: 'display:block;font-size:13px' }, 'Backup: checking…');
+  if (sup) sb.from('backup_log').select('kind,created_at').eq('status', 'ok').order('created_at', { ascending: false }).limit(1).then(({ data }) => {
+    const d = data && data[0]; if (!d) { bk.textContent = '⚠ No backup yet — tap to take one'; bk.style.color = '#b3261e'; return; }
+    const days = Math.floor((Date.now() - new Date(d.created_at)) / 864e5);
+    bk.textContent = (days > 7 ? '⚠ ' : '✔ ') + 'Last backup: ' + (days === 0 ? 'today' : days + ' day(s) ago') + ' (' + d.kind + ')'; if (days > 7) bk.style.color = '#b3261e';
+  });
   main.append(h('h2', {}, 'Welcome, ' + p.full_name),
     h('div', { class: 'card' }, h('input', { type: 'search', placeholder: 'Search name, Family ID, Member ID, mobile… · खोजें', onfocus: () => (location.hash = 'registry') })),
+    sup ? bk : null,
     SECTIONS.length > 1 ? tabs : null, body,
     h('p', { class: 'muted', style: 'text-align:center;font-size:12px;margin-top:18px' }, 'Chhipa One · ' + APP_VERSION));
 }
