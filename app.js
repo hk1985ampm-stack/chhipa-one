@@ -8,6 +8,7 @@ const ROUTES = {
   audit: () => import('./audit.js'),
   registry: () => import('./registry.js'),
   add: () => import('./add.js'),
+  communities: () => import('./communities.js'),
   card: () => import('./card.js'),
   notifications: () => import('./notifications.js'),
   family: () => import('./family.js'),

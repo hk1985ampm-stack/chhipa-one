@@ -1,6 +1,6 @@
 import { sb, h, hi, state } from './core.js';
 
-const APP_VERSION = 'v7 · Phase 5b';
+const APP_VERSION = 'v8 · Communities';
 const tile = (href, en, hindi, soon, badge) =>
   h(soon ? 'div' : 'a', { class: 'tile' + (soon ? ' soon' : ''), href: soon ? null : href },
     h('span', {}, en), h('span', { class: 'hi' }, hindi), soon ? h('span', { class: 'tag' }, 'Coming in Phase ' + soon) : null, badge ? h('span', { class: 'badge' }, String(badge)) : null);
@@ -22,7 +22,7 @@ export async function render(main) {
       ['super_admin', 'location_admin'].includes(p.role) ? tile('#registry/pending', 'Pending Approvals', 'लंबित स्वीकृति', false, pend) : null,
       tile('#notifications', 'Notifications', 'सूचनाएँ', false, unread),
       tile('#events', 'Life Events', 'जीवन घटनाएँ'),
-      sup ? tile('#locations', 'Locations', 'स्थान') : null,
+      sup ? tile('#communities', 'Communities', 'समुदाय') : null,
       sup ? tile('#lists', 'Dropdown Lists', 'ड्रॉपडाउन सूची') : null,
       sup ? tile('#staff', 'Staff & Agents', 'स्टाफ / एजेंट') : null,
       sup ? tile('#audit', 'Audit Log', 'ऑडिट लॉग') : null),

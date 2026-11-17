@@ -1,6 +1,6 @@
 // App-shell cache so the app opens offline. Database calls always go to the network.
-const V = 'chhipa-one-v7';
-const SHELL = ['./','index.html','app.css','app.js','core.js','config.js','supabase.min.js','home.js','locations.js','staff.js','audit.js','registry.js','add.js','family.js','notifications.js','card.js','photo.js','pdf.js','stamp.png','memberform.js','options.js','events.js','lists.js','manifest.webmanifest','icon-192.png'];
+const V = 'chhipa-one-v8';
+const SHELL = ['./','index.html','app.css','app.js','core.js','config.js','supabase.min.js','home.js','locations.js','staff.js','audit.js','registry.js','add.js','family.js','notifications.js','card.js','communities.js','photo.js','pdf.js','stamp.png','memberform.js','options.js','events.js','lists.js','manifest.webmanifest','icon-192.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
