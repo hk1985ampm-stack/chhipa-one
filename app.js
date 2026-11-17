@@ -1,5 +1,6 @@
 import { initOutbox, onOutbox, outbox, flush, kvGet, kvSet, isNetErr, cached } from './offline.js';
 import { CONFIG } from './config.js';
+import { brand, loadBrand, logoImg, brandName, brandSub } from './brand.js';
 import { sb, h, hi, state, toast, ROLE_LABEL, loadOptions, myLocations } from './core.js';
 
 const ROUTES = {
@@ -49,7 +50,7 @@ function loginView() {
       ? 'Too many attempts. Please wait a few minutes.' : 'Email or password is incorrect.';
   };
   root.replaceChildren(h('div', { class: 'login' },
-    h('h1', {}, 'Chhipa One'), h('p', { class: 'muted' }, 'Chhipa Jamat Barar Welfare Society'),
+    h('div', { class: 'hero-login' }, logoImg(84), h('h1', {}, 'Chhipa One'), h('p', {}, brandName()), brandSub() ? h('small', {}, brandSub().toUpperCase()) : null),
     h('form', { class: 'card', onsubmit: go },
       h('label', {}, hi('Email', 'ईमेल')), email,
       h('label', {}, hi('Password', 'पासवर्ड')), pass, err, btn)));
@@ -69,8 +70,8 @@ async function render() {
   const main = h('main');
   root.replaceChildren(
     h('header', { class: 'bar' },
-      route ? h('button', { onclick: () => (location.hash = '') }, '← Home') : null,
-      h('h1', {}, 'Chhipa One'),
+      route ? h('button', { onclick: () => (location.hash = '') }, '← Home') : logoImg(40),
+      h('div', { class: 'ttl' }, h('h1', {}, 'Chhipa One'), brandSub() ? h('small', {}, brandSub().toUpperCase()) : null),
       h('span', { class: 'muted', style: 'color:#d6efe5;font-size:13px' }, ROLE_LABEL[state.profile.role]),
       h('button', { onclick: () => sb.auth.signOut() }, 'Sign out')),
     main,
@@ -89,13 +90,13 @@ onOutbox(n => { const b = document.getElementById('obx'); if (b) { b.hidden = !n
 
 async function boot(session) {
   state.profile = null;
-  if (!session) return loginView();
+  if (!session) { await loadBrand(); return loginView(); }
   let { data, error } = await sb.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle();
   if (error && isNetErr(error)) { data = await kvGet('profile_' + session.user.id); error = data ? null : error; }
   else if (data) kvSet('profile_' + session.user.id, data);
   if (error || !data) return blockedView('Your login is not yet activated. Please ask the Super Admin to add you as staff.');
   if (data.status !== 'active') return blockedView('Your account is ' + data.status + '. Please contact the Super Admin.');
-  state.profile = data; armIdle(); await loadOptions(); render(); initOutbox(); prefetch();
+  state.profile = data; armIdle(); await loadOptions(); loadBrand().then(() => { if (!location.hash || location.hash === '#') render(); }); render(); initOutbox(); prefetch();
 }
 
 // Switching browser tabs makes Supabase re-announce the same session. Only react when the user really changes

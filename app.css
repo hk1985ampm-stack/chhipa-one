@@ -126,3 +126,11 @@ main .backlink a{color:var(--g);font-weight:600;text-decoration:none}.backlink{m
 .btn.alt.bad{color:var(--bad);border-color:var(--bad)}.btn.sm.bad{background:var(--bad);color:#fff}
 .photo-row{display:flex;gap:12px;align-items:center;margin:6px 0 4px}
 .obx{z-index:16}
+
+/* Phase 11: community branding (logo, login hero, header, home hero) */
+img.logo{border-radius:50%;object-fit:cover;background:#fff;border:2px solid #d9b455;flex:none}
+header.bar .ttl{flex:1;display:flex;flex-direction:column;min-width:0}header.bar .ttl h1{flex:none;line-height:1.1}header.bar .ttl small{font-size:10px;letter-spacing:.12em;color:#cfe8dd}
+.hero-login{background:linear-gradient(135deg,#0d3220,#0f6b4f);color:#fff;border-radius:18px;padding:22px 16px;text-align:center;margin-bottom:14px}
+.hero-login img{display:block;margin:0 auto 10px}.hero-login h1{color:#fff;margin:0}.hero-login p{margin:4px 0 2px;color:#e3f1ec}.hero-login small{letter-spacing:.14em;color:#e6c76b}
+.hero{background:linear-gradient(135deg,#0d3220,#0f6b4f);color:#fff;border-radius:18px;padding:16px;display:flex;gap:14px;align-items:center;margin:8px 0 12px}
+.hero b{font-size:17px;display:block}.hero small{display:block;color:#cfe8dd;margin-top:2px}.hero .gold{color:#e6c76b;letter-spacing:.1em;font-size:11px;margin-top:6px}

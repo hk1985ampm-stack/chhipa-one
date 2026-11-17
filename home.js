@@ -1,6 +1,7 @@
-import { sb, h, hi, state } from './core.js';
+import { sb, h, hi, state, ROLE_LABEL } from './core.js';
+import { logoImg, brandName, brandSub, brand } from './brand.js';
 
-const APP_VERSION = 'v14 · Clean-up Tools';
+const APP_VERSION = 'v15 · Branding';
 const tile = (href, en, hindi, soon, badge) =>
   h(soon ? 'div' : 'a', { class: 'tile' + (soon ? ' soon' : ''), href: soon ? null : href },
     h('span', {}, en), h('span', { class: 'hi' }, hindi), soon ? h('span', { class: 'tag' }, 'Coming in Phase ' + soon) : null, badge ? h('span', { class: 'badge' }, String(badge)) : null);
@@ -35,7 +36,8 @@ export async function render(main) {
     const days = Math.floor((Date.now() - new Date(d.created_at)) / 864e5);
     bk.textContent = (days > 7 ? '⚠ ' : '✔ ') + 'Last backup: ' + (days === 0 ? 'today' : days + ' day(s) ago') + ' (' + d.kind + ')'; if (days > 7) bk.style.color = '#b3261e';
   });
-  main.append(h('h2', {}, 'Welcome, ' + p.full_name),
+  main.append(h('div', { class: 'hero' }, logoImg(64), h('div', {}, h('b', {}, brandName()), brandSub() ? h('small', {}, brandSub()) : null, h('div', { class: 'gold' }, (brand.data && brand.data.estd ? 'ESTD ' + brand.data.estd + ' · ' : '') + (ROLE_LABEL[p.role] || '').toUpperCase()))),
+    h('h2', {}, 'Welcome, ' + p.full_name),
     h('div', { class: 'card' }, h('input', { type: 'search', placeholder: 'Search name, Family ID, Member ID, mobile… · खोजें', onfocus: () => (location.hash = 'registry') })),
     sup ? bk : null,
     SECTIONS.length > 1 ? tabs : null, body,

@@ -1,6 +1,7 @@
 import { sb, ageText } from './core.js';
 import { REL_LABELS } from './options.js';
 import { photoUrl } from './photo.js';
+import { brand, logoUrl } from './brand.js';
 
 const load = src => new Promise((ok, no) => { if (document.querySelector(`script[data-s="${src}"]`)) return ok();
   const s = document.createElement('script'); s.src = src; s.dataset.s = src; s.onload = ok; s.onerror = () => no(new Error('Could not load ' + src)); document.head.appendChild(s); });
@@ -8,6 +9,8 @@ const dataUrl = async u => { const r = await fetch(u); const b = await r.blob();
 const safe = n => (n || 'family').replace(/[^\w\s-]/g, '').replace(/\s+/g, '_').slice(0, 40);
 const REL_PDF = { head: 'Khud (Self)', spouse: 'Patni / Pati (Spouse)', son: 'Beta (Son)', daughter: 'Beti (Daughter)', 'daughter-in-law': 'Bahu (Daughter-in-law)', 'son-in-law': 'Damad (Son-in-law)',
   grandson: 'Pota (Grandson)', granddaughter: 'Poti (Granddaughter)', father: 'Walid (Father)', mother: 'Walida (Mother)', brother: 'Bhai (Brother)', sister: 'Behen (Sister)' };
+
+export const loadPdfLibs = async () => { await load('jspdf.min.js'); await load('jspdf-autotable.min.js'); await load('qrcode.min.js'); };
 
 function qrPng(text) {
   const q = window.qrcode(0, 'M'); q.addData(text); q.make();
@@ -27,9 +30,11 @@ export async function familyCardPdf(fam, rows, ageOf = ageText) {
   doc.setFillColor(...CR); doc.rect(0, 0, W, H, 'F'); doc.setDrawColor(...GO); doc.setLineWidth(.8); doc.rect(2, 2, W - 4, H - 4, 'S'); doc.setLineWidth(.3); doc.rect(4, 4, W - 8, H - 8, 'S');
   doc.setFillColor(...DG); doc.rect(2, 2, W - 4, 24, 'F'); doc.setDrawColor(...GO); doc.setLineWidth(.4); doc.line(2, 26, W - 2, 26);
   doc.setFillColor(255, 255, 255); doc.circle(18, 14, 8, 'F'); doc.circle(18, 14, 8, 'S');
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(5); doc.setTextColor(...DG); T('ESTD.', 18, 11, { align: 'center' }); T('2016', 18, 15.5, { align: 'center' });
-  doc.setFontSize(14); doc.setTextColor(255, 255, 255); T('CHHIPA JAMAT BARAR WELFARE SOCIETY', W / 2, 13, { align: 'center' });
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(200, 225, 200); T('Chandur Bazar, Maharashtra  -  All India', W / 2, 20, { align: 'center' });
+  const B = brand.data || {}, lg = logoUrl(B.logo_path); let logoOk = false;
+  if (lg) { try { doc.addImage(await dataUrl(lg), 'PNG', 10.5, 6.5, 15, 15, undefined, 'FAST'); logoOk = true; } catch (e) {} }
+  if (!logoOk) { doc.setFont('helvetica', 'bold'); doc.setFontSize(5); doc.setTextColor(...DG); T('ESTD.', 18, 11, { align: 'center' }); T(B.estd || '2016', 18, 15.5, { align: 'center' }); }
+  doc.setFontSize(14); doc.setTextColor(255, 255, 255); T(B.header_line1 || 'CHHIPA JAMAT BARAR WELFARE SOCIETY', W / 2, 13, { align: 'center' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(200, 225, 200); T(B.header_line2 || 'Chandur Bazar, Maharashtra  -  All India', W / 2, 20, { align: 'center' });
   const code = fam.family_code || 'PENDING';
   try { doc.addImage(qrPng('CJBWS|' + (hm ? hm.full_name : '') + '|ID:' + code), 'PNG', W - 24, 2, 20, 20); } catch (e) {}
   doc.setFillColor(...DG); doc.rect(2, 26, W - 4, 9, 'F'); doc.setDrawColor(...GO); doc.setLineWidth(.5); doc.line(2, 26, W - 2, 26); doc.line(2, 35, W - 2, 35);
@@ -50,7 +55,7 @@ export async function familyCardPdf(fam, rows, ageOf = ageText) {
   lab('Mobile (Head of Family)', 137, 43); val(mob, 137, 50, 11); lab('City / Taluka / State', 137, 59);
   val([fam.locations.city, fam.taluka, fam.locations.state].filter(Boolean).join(' / '), 137, 65);
   lab('Gotra', 224, 43); val(fam.gotra || '—', 224, 50, 11); lab('Family Type', 224, 59); val(fam.family_type || '—', 224, 65, 10);
-  try { doc.addImage('stamp.png', 'PNG', W - 44, 37, 36, 34, undefined, 'FAST'); } catch (e) {}
+  try { doc.addImage('stamp.png', 'PNG', W - 44, 37, 36, 34, undefined, 'FAST'); } catch (e) {}  // official stamp image stays on the card
   doc.setFillColor(...DG); doc.roundedRect(W / 2 - 32, 79, 64, 8, 2, 2, 'F'); doc.setDrawColor(...GO); doc.setLineWidth(.4); doc.roundedRect(W / 2 - 32, 79, 64, 8, 2, 2, 'S');
   doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(255, 255, 255); T('MEMBERS (' + rows.length + ')', W / 2, 84.5, { align: 'center' });
   const d = v => v || '—';
@@ -63,7 +68,7 @@ export async function familyCardPdf(fam, rows, ageOf = ageText) {
     columnStyles: { 0: { halign: 'center', cellWidth: 12 }, 2: { halign: 'center', cellWidth: 12 }, 3: { halign: 'center', cellWidth: 16 }, 4: { cellWidth: 32 }, 5: { cellWidth: 26 }, 6: { cellWidth: 24 }, 7: { cellWidth: 22 }, 8: { cellWidth: 26 } },
     styles: { lineColor: GO, lineWidth: .2, overflow: 'linebreak' },
     willDrawPage: d => { if (d.pageNumber > 1) { doc.setFillColor(...CR); doc.rect(0, 0, W, H, 'F'); doc.setDrawColor(...GO); doc.setLineWidth(.8); doc.rect(2, 2, W - 4, H - 4, 'S'); } } });
-  const pages = doc.internal.getNumberOfPages(), quote = (fam.quote || '').trim() || 'Together We Build a Stronger Community';
+  const pages = doc.internal.getNumberOfPages(), quote = (fam.quote || '').trim() || B.footer_text || 'Together We Build a Stronger Community';
   for (let i = 1; i <= pages; i++) { doc.setPage(i); doc.setFillColor(...DG); doc.rect(2, H - 10, W - 4, 8, 'F'); doc.setDrawColor(...GO); doc.setLineWidth(.3); doc.line(2, H - 10, W - 2, H - 10);
     doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(10); doc.setTextColor(255, 255, 255); T(quote, W / 2, H - 5, { align: 'center' }); }
   doc.save('FamilyCard_' + safe(hm && hm.full_name) + '.pdf');

@@ -1,4 +1,5 @@
 import { sb, h, hi, toast, friendly, pill, ROLE_LABEL } from './core.js';
+import { brandingTab } from './branding.js';
 
 const stat = (n, t) => h('div', { class: 'st' }, h('b', {}, String(n)), h('span', {}, t));
 const stPill = s => h('span', { class: 'pill ' + (s === 'active' ? 'approved' : s === 'suspended' ? 'pending' : 'rejected') }, s);
@@ -35,7 +36,7 @@ async function detail(main, id) {
   let tab = sessionStorage.getItem('comm_tab') || 'locations';
   const body = h('div');
   const tabs = h('div', { class: 'chips' });
-  const TABS = [['locations', 'Locations'], ['people', 'Admins & Agents'], ['families', 'Families'], ['members', 'Members']];
+  const TABS = [['locations', 'Locations'], ['people', 'Admins & Agents'], ['families', 'Families'], ['members', 'Members'], ['branding', 'Logo & Label']];
   const setStatus = async s => { if (s !== 'active' && !confirm('Deactivate this community? Its users will lose access until you reactivate it. No data is deleted.')) return;
     const { error } = await sb.rpc('community_set_status', { p_id: id, p_status: s }); error ? toast(friendly(error)) : (toast('Updated'), reload()); };
 
@@ -48,7 +49,7 @@ async function detail(main, id) {
   const draw = async () => {
     tabs.replaceChildren(...TABS.map(([k, t]) => h('button', { class: 'btn ' + (tab === k ? '' : 'alt'), onclick: () => { tab = k; sessionStorage.setItem('comm_tab', k); draw(); } }, t)));
     body.replaceChildren(h('p', { class: 'muted' }, 'Loading…'));
-    body.replaceChildren(await ({ locations: tLocs, people: tPeople, families: tFams, members: tMems })[tab]());
+    body.replaceChildren(await ({ locations: tLocs, people: tPeople, families: tFams, members: tMems, branding: () => brandingTab(c, reload) })[tab]());
   };
 
   const tLocs = async () => {
