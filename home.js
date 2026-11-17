@@ -1,6 +1,6 @@
 import { sb, h, hi, state } from './core.js';
 
-const APP_VERSION = 'v12 · Backup';
+const APP_VERSION = 'v13 · Reports';
 const tile = (href, en, hindi, soon, badge) =>
   h(soon ? 'div' : 'a', { class: 'tile' + (soon ? ' soon' : ''), href: soon ? null : href },
     h('span', {}, en), h('span', { class: 'hi' }, hindi), soon ? h('span', { class: 'tag' }, 'Coming in Phase ' + soon) : null, badge ? h('span', { class: 'badge' }, String(badge)) : null);
@@ -16,6 +16,7 @@ export async function render(main) {
     ['families', '👨‍👩‍👧 Families', [
       tile('#registry', 'Family Registry', 'परिवार रजिस्टर'), tile('#add', 'Add Family', 'परिवार जोड़ें'),
       tile('#events', 'Life Events', 'जीवन घटनाएँ'), tile('#notifications', 'Notifications', 'सूचनाएँ', false, unread),
+      tile('#reports', 'Reports', 'रिपोर्ट'), tile('#reports/quality', 'Data Quality', 'डेटा जाँच'),
       appr ? tile('#registry/removed', 'Removed Entries', 'हटाई गई प्रविष्टियाँ') : null]],
     ...(appr ? [['office', '🏢 Office', [
       tile('#registry/pending', 'Pending Approvals', 'लंबित स्वीकृति', false, pend),

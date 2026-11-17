@@ -16,7 +16,8 @@ const ROUTES = {
   events: () => import('./events.js'),
   lists: () => import('./lists.js'),
   excel: () => import('./excel.js'),
-  backup: () => import('./backup.js')
+  backup: () => import('./backup.js'),
+  reports: () => import('./reports.js')
 };
 const root = document.getElementById('app');
 
