@@ -3,6 +3,8 @@ import { CONFIG } from './config.js';
 import { lang, LANGS, setLang, nextLang, applyLang } from './i18n.js';
 applyLang();
 import { brand, loadBrand, logoImg, brandName, brandSub } from './brand.js';
+import { applySettings } from './settings.js';
+import { startDecorate } from './decorate.js';
 import { sb, h, hi, state, toast, ROLE_LABEL, loadOptions, myLocations } from './core.js';
 import { loadCustomFields } from './customfields.js';
 
@@ -39,6 +41,7 @@ const ROUTES = {
   staffcard: () => import('./staffcard.js'),
   myteam: () => import('./myteam.js'),
   profile: () => import('./profile.js'),
+  appsettings: () => import('./appsettings.js'),
   inbox: () => import('./inbox.js')
 };
 const root = document.getElementById('app');
@@ -129,4 +132,5 @@ sb.auth.onAuthStateChange((ev, session) => {
   curUid = uid; boot(session);
 });
 addEventListener('hashchange', () => { if (/^#register\//.test(location.hash)) return boot(null); state.profile && render(); });
+applySettings(); startDecorate();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

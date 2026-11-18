@@ -3,12 +3,16 @@ import { brandingTab } from './branding.js';
 import { teamTab } from './team.js';
 
 const stat = (n, t) => h('div', { class: 'st' }, h('b', {}, String(n)), h('span', {}, t));
+const TC = {};
+const statsRow = (c, t = {}) => h('div', { class: 'stats' }, stat(c.locations, 'Locations'), stat(c.families, 'Families'), stat(t.team || 0, 'Team (official)'), stat(t.state_admins || 0, 'State Admins'), stat(t.loc_admins || 0, 'Location Admins'), stat(t.agents || 0, 'Agents'));
+const loadCounts = async () => { try { const { data } = await sb.rpc('community_team_counts'); (data || []).forEach(r => (TC[r.id] = r)); } catch {} };
 const stPill = s => h('span', { class: 'pill ' + (s === 'active' ? 'approved' : s === 'suspended' ? 'pending' : 'rejected') }, s);
 
 export async function render(main, arg) {
   if (arg) return detail(main, arg);
   const { data, error } = await sb.rpc('community_overview');
   if (error) throw error;
+  await loadCounts();
   const reload = () => { main.replaceChildren(); render(main); };
   const cn = h('input', { placeholder: 'Community name · समुदाय का नाम' }), cr = h('input', { placeholder: 'Registration no. (optional)' });
   const ct = h('select', {}, ['Welfare Society', 'Charitable Trust', 'Other'].map(x => h('option', {}, x)));
@@ -23,7 +27,7 @@ export async function render(main, arg) {
     ...data.map(c => h('a', { class: 'card comm', href: '#communities/' + c.id },
       h('div', { class: 'item' }, h('b', {}, c.name), stPill(c.status)),
       h('div', { class: 'muted s' }, c.org_type + (c.reg_no ? ' · Reg. ' + c.reg_no : '')),
-      h('div', { class: 'stats' }, stat(c.locations, 'Locations'), stat(c.families, 'Families'), stat(c.members, 'Members'), stat(c.admins, 'Admins'), stat(c.agents, 'Agents')))),
+      statsRow(c, TC[c.id]))),
     h('div', { class: 'card' }, h('h3', { style: 'margin-top:0' }, '+ Add community'), h('label', {}, 'Name'), cn,
       h('div', { class: 'row' }, h('div', {}, h('label', {}, 'Type'), ct), h('div', {}, h('label', {}, 'Registration no.'), cr)),
       h('p', {}, h('button', { class: 'btn', onclick: add }, 'Add community')))].filter(Boolean));
@@ -32,12 +36,13 @@ export async function render(main, arg) {
 async function detail(main, id) {
   const [ov, locs, ppl] = await Promise.all([sb.rpc('community_overview'), sb.from('locations').select('*').eq('community_id', id).order('city'), sb.rpc('community_people', { p_community: id })]);
   if (ov.error || locs.error || ppl.error) throw (ov.error || locs.error || ppl.error);
+  await loadCounts();
   const c = ov.data.find(x => x.id === id); if (!c) return main.append(h('p', { class: 'err' }, 'Community not found.'));
   const reload = () => { main.replaceChildren(); detail(main, id); };
-  let tab = sessionStorage.getItem('comm_tab') || 'locations'; if (!['locations', 'team', 'branding'].includes(tab)) tab = 'locations';
+  let tab = sessionStorage.getItem('comm_tab') || 'locations'; if (!['locations', 'team', 'families', 'branding'].includes(tab)) tab = 'locations';
   const body = h('div');
   const tabs = h('div', { class: 'chips' });
-  const TABS = [['locations', 'Locations'], ['team', 'Team'], ['branding', 'Logo & Label']];
+  const TABS = [['locations', 'Locations'], ['team', 'Team'], ['families', 'Families'], ['branding', 'Logo & Label']];
   const setStatus = async s => { if (s !== 'active' && !confirm('Deactivate this community? Its users will lose access until you reactivate it. No data is deleted.')) return;
     const { error } = await sb.rpc('community_set_status', { p_id: id, p_status: s }); error ? toast(friendly(error)) : (toast('Updated'), reload()); };
 
@@ -48,7 +53,7 @@ async function detail(main, id) {
     error ? toast(friendly(error)) : (toast('Community deleted permanently'), location.hash = 'communities');
   };
   const draw = async () => {
-    tabs.replaceChildren(...TABS.map(([k, t]) => h('button', { class: 'btn ' + (tab === k ? '' : 'alt'), onclick: () => { tab = k; sessionStorage.setItem('comm_tab', k); draw(); } }, t)));
+    tabs.replaceChildren(...TABS.map(([k, t]) => h('button', { class: 'btn ' + (tab === k ? '' : 'alt'), onclick: () => { tab = k; sessionStorage.setItem('comm_tab', k); draw(); } }, k === 'families' ? t + ' (' + c.families + ')' : k === 'team' ? t + ' (' + ((TC[c.id] || {}).team || 0) + ')' : t)));
     body.replaceChildren(h('p', { class: 'muted' }, 'Loading…'));
     if (body.firstChild && body.firstChild.stop) body.firstChild.stop();
     body.replaceChildren(await ({ locations: tLocs, team: () => teamTab(c, locs.data), people: tPeople, families: tFams, members: tMems, branding: () => brandingTab(c, reload) })[tab]());
@@ -107,7 +112,7 @@ async function detail(main, id) {
 
   main.append(h('div', { class: 'backlink noprint' }, h('a', { href: '#communities' }, '← Communities')),
     h('div', { class: 'card' }, h('div', { class: 'item' }, h('h2', { style: 'margin:0' }, c.name), stPill(c.status)),
-      h('div', { class: 'stats' }, stat(c.locations, 'Locations'), stat(c.families, 'Families'), stat(c.members, 'Members'), stat(c.admins, 'Admins'), stat(c.agents, 'Agents')),
+      statsRow(c, TC[c.id]),
       h('p', { class: 'actions-card' }, c.status === 'active' ? h('button', { class: 'btn alt sm', onclick: () => setStatus('suspended') }, 'Deactivate community') : h('button', { class: 'btn sm', onclick: () => setStatus('active') }, 'Reactivate community'),
         c.status !== 'active' ? h('button', { class: 'btn bad sm', onclick: purge }, 'Delete permanently (test data)') : null)),
     tabs, body);

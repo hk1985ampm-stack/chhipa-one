@@ -36,12 +36,28 @@ export async function teamTab(c, locs) {
       h('div', { class: 'chips' },
         p.invited ? h('button', { class: 'btn sm', onclick: () => { form.replaceChildren(shareBox(p.full_name, p.email, LV[p.level], '')); form.scrollIntoView({ behavior: 'smooth' }); } }, '📤 Send invite') : null,
         h('button', { class: 'btn alt sm', onclick: () => edit(p) }, '✏️ Role'),
+        state.profile.role === 'super_admin' && !p.invited && p.user_id && p.user_id !== state.profile.user_id ? [h('button', { class: 'btn alt sm', onclick: () => move(p, 1) }, '▲ Promote'), h('button', { class: 'btn alt sm', onclick: () => move(p, -1) }, '▼ Demote')] : null,
         !p.invited && p.can_reset ? h('button', { class: 'btn alt sm', onclick: () => resetFor(p.user_id, p.full_name, p.email, pwbox, load) }, '🔑 Reset password') : null,
-        !p.invited && p.user_id ? h('button', { class: 'btn alt sm', onclick: () => pickStaffPhoto(p.user_id, load) }, '📷') : null,
+        !p.invited && p.user_id ? h('button', { class: 'btn alt sm', onclick: () => pickStaffPhoto(p.user_id, load) }, '📷 Photo') : null,
         !p.invited && p.status === 'active' ? h('a', { class: 'btn alt sm', href: '#staffcard/' + p.user_id }, '🪪 ID Card') : null,
         !p.invited && p.user_id !== state.profile.user_id ? h('button', { class: 'btn alt sm', onclick: () => act(() => sb.rpc('staff_set_status', { p_user: p.user_id, p_status: p.status === 'active' ? 'suspended' : 'active' }), 'Updated') }, p.status === 'active' ? 'Suspend' : 'Activate') : null,
         p.invited ? h('button', { class: 'btn alt bad sm', onclick: () => confirm('Cancel invite for ' + p.email + '?') && act(() => sb.rpc('team_cancel_invite', { p_email: p.email }), 'Invite cancelled') }, 'Cancel invite')
           : p.user_id !== state.profile.user_id && p.status !== 'revoked' ? h('button', { class: 'btn alt bad sm', onclick: () => confirm('Remove ' + p.full_name + '? They lose access immediately.') && act(() => sb.rpc('team_remove', { p_user: p.user_id }), 'Removed') }, 'Remove') : null)))));
+  // Super Admin: one-tap promote / demote (emergency hand-over). Missing state / location details are asked for in a small form.
+  const ORDER = ['agent', 'location_admin', 'state_admin', 'owner'];
+  const move = (p, d) => {
+    const i = ORDER.indexOf(p.level), to = ORDER[i + d]; if (!to) return toast(d > 0 ? 'Already the highest level' : 'Already an agent');
+    const mine = locs.filter(l => (p.location_codes || []).includes(l.code)), st = h('select', {}, states.map(s => h('option', { value: s }, s)));
+    const boxes = locs.filter(l => l.status === 'active').map(l => ({ l, el: h('input', { type: 'checkbox', checked: mine.some(x => x.id === l.id) }) }));
+    const stBox = h('div', {}, h('label', {}, 'State'), st), locBox = h('div', {}, h('label', {}, 'Locations'), ...boxes.map(b => h('label', { class: 'chk' }, b.el, `${b.l.code} · ${b.l.city}`)));
+    stBox.hidden = to !== 'state_admin'; locBox.hidden = !['location_admin', 'agent'].includes(to);
+    if (mine[0]) st.value = mine[0].state;
+    form.replaceChildren(h('div', { class: 'card' }, h('h3', { style: 'margin-top:0' }, (d > 0 ? '▲ Promote ' : '▼ Demote ') + p.full_name), h('p', {}, LV[p.level] + '  →  ', h('b', {}, LV[to])), to === 'owner' ? h('p', { class: 'err' }, 'Owner has full control of everything. Be sure.') : null, stBox, locBox,
+      h('div', { class: 'actions' }, h('button', { class: 'btn alt', onclick: () => form.replaceChildren() }, 'Cancel'), h('button', { class: 'btn', onclick: async ev => {
+        ev.target.disabled = true; const { error } = await sb.rpc('team_set_level', { p_user: p.user_id, p_level: to, p_state: st.value || null, p_locations: boxes.filter(b => b.el.checked).map(b => b.l.id), p_community: c.id });
+        if (error) { ev.target.disabled = false; return toast(friendly(error)); } form.replaceChildren(); toast(p.full_name + ' is now ' + LV[to]); load(); } }, 'Confirm'))));
+    form.scrollIntoView({ behavior: 'smooth' });
+  };
   const edit = p => {
     const email = h('input', { type: 'email', value: p ? p.email : '', placeholder: 'person@example.com', disabled: !!p });
     const name = h('input', { value: p ? p.full_name : '', placeholder: 'Full name' }), phone = h('input', { type: 'tel', inputmode: 'numeric', maxlength: 10, value: p && p.phone || '', placeholder: '10-digit phone (shown on printed cards)' });
