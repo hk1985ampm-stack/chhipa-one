@@ -65,20 +65,20 @@ function loginView() {
     const { error } = await sb.auth.signInWithPassword({ email: email.value.trim(), password: pass.value });
     btn.disabled = false;
     if (error) err.textContent = /rate|too many/i.test(error.message)
-      ? 'Too many attempts. Please wait a few minutes.' : 'Email or password is incorrect.';
+      ? 'Too many attempts. Please wait a few minutes.' : 'Email or password is incorrect. New here (invited, no password yet)? Tap “Create account” below instead of Sign in.';
   };
   const signup = async () => {
     err.textContent = '';
     if (!email.value.trim() || pass.value.length < 8) return (err.textContent = 'Enter the invited email and a password of at least 8 characters.');
     btn.disabled = true; const { data, error } = await sb.auth.signUp({ email: email.value.trim(), password: pass.value }); btn.disabled = false;
-    if (error) err.textContent = /signups? not allowed/i.test(error.message) ? 'Self sign-up is switched off. Please ask your admin to create your login (or switch sign-ups on), then sign in here.' : error.message; else if (!data.session) { err.className = 'ok'; err.textContent = 'Account created. Please confirm the email we sent you, then sign in.'; }
+    if (error) err.textContent = /already registered/i.test(error.message) ? 'This e-mail already has a login. Please use Sign in with your password.' : /signups? not allowed/i.test(error.message) ? 'Self sign-up is switched off. Please ask your admin to create your login (or switch sign-ups on), then sign in here.' : error.message; else if (!data.session) { err.className = 'ok'; err.textContent = 'Account created. Please confirm the email we sent you, then sign in.'; }
   };
   root.replaceChildren(h('div', { class: 'login' },
     h('div', { class: 'hero-login' }, logoImg(84), h('h1', {}, 'Chhipa One'), h('p', {}, brandName()), brandSub() ? h('small', {}, brandSub().toUpperCase()) : null),
     h('form', { class: 'card', onsubmit: go },
       h('label', {}, hi('Email', 'ईमेल')), email,
       h('label', {}, hi('Password', 'पासवर्ड')), pass, err, btn,
-      h('p', { style: 'text-align:center;margin:14px 0 0' }, h('a', { href: '#', onclick: e => { e.preventDefault(); signup(); } }, 'First time? Create account (invited staff)')))));
+      h('p', { style: 'text-align:center;margin:14px 0 0' }, h('button', { type: 'button', class: 'btn alt', style: 'width:100%', onclick: signup }, 'First time? Create account (invited staff)')))));
 }
 
 function blockedView(msg) {

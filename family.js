@@ -276,5 +276,5 @@ export async function render(main, id) {
           gone && isSuper ? h('button', { class: 'btn sm bad', onclick: () => purgeMem(m) }, 'Delete permanently') : null) : null,
         menu(r)); }),
     hs.data && hs.data.length ? h('div', {}, h('h3', {}, 'History · इतिहास'), h('div', { class: 'card list' }, hs.data.map(x => h('div', { class: 'item' }, h('span', {}, say(x)), h('span', { class: 'muted' }, x.event_date || ''))))) : null,
-    canRemoveFam ? h('div', { class: 'danger-zone noprint' }, h('p', { class: 'muted s' }, 'Danger zone — only for a wrong or test entry. You will be asked to confirm.'), h('button', { class: 'btn alt bad', onclick: removeFam }, 'Remove family (wrong / test entry)')) : null].filter(Boolean));
+    canRemoveFam ? h('div', { class: 'danger-zone noprint' }, h('p', { class: 'muted s' }, 'Danger zone — only for a wrong or test entry. You will be asked to confirm.'), h('button', { class: 'btn bad', style: 'color:#fff;background:#b91c1c', onclick: removeFam }, 'Remove family (wrong / test entry)')) : null].filter(Boolean));
 }
