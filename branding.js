@@ -4,7 +4,7 @@ import { loadPdfLibs } from './pdf.js';
 
 const FIELDS = [['short_name', 'Short name', 'CJBWS'], ['tagline', 'Tagline / place (shown under the title)', 'Chandur Bazar'], ['estd', 'ESTD year', '2016'],
   ['header_line1', 'PDF header line 1', 'CHHIPA JAMAT BARAR WELFARE SOCIETY'], ['header_line2', 'PDF header line 2', 'Chandur Bazar, Maharashtra - All India'],
-  ['footer_text', 'PDF footer line', 'Together We Build a Stronger Community'], ['address_line', 'Address (for labels)', ''], ['contact', 'Contact phone / email', ''],
+  ['footer_text', 'PDF footer line', 'Together We Build a Stronger Community'], ['address_line', 'Address (shown on letterheads & labels)', ''], ['contact', 'Phone / email (letterheads)', ''], ['reg_no', 'Registration no. (letterheads)', 'e.g. MH/123/2016'],
   ['app_url', 'App link for the QR (https://…)', 'https://hk1985ampm-stack.github.io/chhipa-one/']];
 
 function qrCanvas(text, scale = 8) {

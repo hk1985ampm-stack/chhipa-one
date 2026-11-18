@@ -4,6 +4,7 @@ import { lang, LANGS, setLang, nextLang, applyLang } from './i18n.js';
 applyLang();
 import { brand, loadBrand, logoImg, brandName, brandSub } from './brand.js';
 import { sb, h, hi, state, toast, ROLE_LABEL, loadOptions, myLocations } from './core.js';
+import { loadCustomFields } from './customfields.js';
 
 const ROUTES = {
   '': () => import('./home.js'),
@@ -132,7 +133,7 @@ async function boot(session) {
   if (!error && !data && navigator.onLine) { const c = await sb.rpc('invite_claim'); if (c.data && c.data.claimed) { const r = await sb.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle(); data = r.data; } }
   if (error || !data) return blockedView('Your login is not yet activated. Please ask the Super Admin to add you as staff.');
   if (data.status !== 'active') return blockedView('Your account is ' + data.status + '. Please contact the Super Admin.');
-  state.profile = data; armIdle(); watchSelf(session.user.id, data); await loadOptions(); loadBrand().then(() => { if (!location.hash || location.hash === '#') render(); }); render(); initOutbox(); prefetch();
+  state.profile = data; armIdle(); watchSelf(session.user.id, data); await loadOptions(); loadCustomFields(); loadBrand().then(() => { if (!location.hash || location.hash === '#') render(); }); render(); initOutbox(); prefetch();
 }
 
 // Switching browser tabs makes Supabase re-announce the same session. Only react when the user really changes

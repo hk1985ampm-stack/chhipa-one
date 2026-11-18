@@ -1,4 +1,4 @@
-import { sb, h, hi, toast, friendly, myLocations, state, isApprover, digits } from './core.js';
+import { sb, h, hi, toast, friendly, myLocations, state, isApprover, digits, isStateOrSuper } from './core.js';
 import { brand } from './brand.js';
 import { loadPdfLibs } from './pdf.js';
 
@@ -23,7 +23,7 @@ async function receiptPdf(d, fam) {
 }
 
 export async function render(main) {
-  if (!isApprover() && !state.profile.can_export) { /* agents may record only */ }
+  if (!isStateOrSuper()) return main.append(h('div', { class: 'card' }, h('b', {}, 'Donations are visible to State Admin and Super Admin only.')));
   const locs = await myLocations(), appr = isApprover(), ro = !!state.profile.read_only, thisY = new Date().getFullYear();
   const loc = h('select', {}, h('option', { value: '' }, 'All locations'), locs.map(l => h('option', { value: l.id }, l.city)));
   const fy = h('select', {}, [thisY + 1, thisY, thisY - 1, thisY - 2].map(y => h('option', { value: y, selected: y === thisY }, y)));

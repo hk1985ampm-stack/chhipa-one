@@ -5,6 +5,7 @@ import { photoUrl } from './photo.js';
 import { loadPdfLibs, qrPng, load } from './pdf.js';
 import { REL_LABELS } from './options.js';
 import { idSpec, drawPdf, cardParts, measurer, CW, CH } from './idcard.js';
+import { prep, headFull, headSlim, footers, bodyBottom, getCfg, today as tday } from './letterhead.js';
 
 const DG = [13, 50, 30], GO = [180, 140, 40], CR = [250, 248, 238];
 const mobOf = m => { const c = m && m.member_contacts; return (Array.isArray(c) ? c[0] : c)?.mobile || ''; };
@@ -25,70 +26,89 @@ export async function fetchFamilies(locationId, onProgress) {
     const head = act.find(r => r.relation === 'head'); return { ...f, rows: act.sort((a, b) => (b.relation === 'head') - (a.relation === 'head')), head: head && head.members, hmob: (head && mobOf(head.members)) || f.phone || '' }; });
 }
 
-async function newDoc(orientation, title, sub) {
-  await loadPdfLibs(); const doc = new window.jspdf.jsPDF({ orientation, unit: 'mm', format: 'a4' }), W = doc.internal.pageSize.getWidth(), B = brand.data || {};
-  const lg = logoUrl(B.logo_path); let img = null; if (lg) { try { img = await dataUrl(lg); } catch {} }
-  const head = () => { doc.setFillColor(...DG); doc.rect(0, 0, W, 22, 'F'); doc.setFillColor(...GO); doc.rect(0, 22, W, .8, 'F');
-    if (img) { doc.setFillColor(255, 255, 255); doc.circle(14, 11, 7.5, 'F'); try { doc.addImage(img, 'PNG', 7.5, 4.5, 13, 13); } catch {} }
-    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.text(B.header_line1 || B.name || 'CHHIPA JAMAT BARAR WELFARE SOCIETY', W / 2, 10, { align: 'center' });
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(200, 225, 200); doc.text(B.header_line2 || '', W / 2, 15.5, { align: 'center' });
-    doc.setFontSize(9); doc.setTextColor(255, 255, 255); doc.text(title + (sub ? '  ·  ' + sub : ''), W / 2, 20, { align: 'center' }); };
-  head(); return { doc, W, head, B };
+
+async function newDoc(orientation, title, sub, o, format = 'a4') {
+  await loadPdfLibs(); const doc = new window.jspdf.jsPDF({ orientation, unit: 'mm', format }), L = await prep(o && o.cfg ? o.cfg : getCfg());
+  const y = headFull(doc, L, title, sub); return { doc, L, y, W: doc.internal.pageSize.getWidth(), H: doc.internal.pageSize.getHeight(), title };
 }
-const foot = (doc, B) => { const n = doc.internal.getNumberOfPages(), W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
-  for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(7); doc.setTextColor(110, 110, 110); doc.setFont('helvetica', 'normal'); doc.text((B.footer_text || '') + '   ·   Printed ' + today(), 8, H - 5); doc.text('Page ' + i + ' of ' + n, W - 8, H - 5, { align: 'right' }); } };
-const tbl = (doc, opts) => doc.autoTable({ margin: { left: 8, right: 8, top: 27, bottom: 12 }, theme: 'grid', styles: { fontSize: 8, cellPadding: 2 }, headStyles: { fillColor: DG, textColor: 255, halign: 'center' }, alternateRowStyles: { fillColor: [240, 250, 244] }, ...opts });
+const nextPage = (doc, L, title) => { doc.addPage(); return headSlim(doc, L, title); };
+const tbl = (doc, L, title, opts) => doc.autoTable({ margin: { left: 8, right: 8, top: 18, bottom: 14 }, theme: 'grid', styles: { fontSize: 8, cellPadding: 2, lineColor: L.th.go, lineWidth: .15 }, headStyles: { fillColor: L.th.dg, textColor: 255, halign: 'center' },
+  alternateRowStyles: { fillColor: L.th.soft }, didDrawPage: d => { if (d.pageNumber > 1) headSlim(doc, L, title); }, ...opts });
 const addr = f => [f.address, f.taluka, f.locations && f.locations.city].filter(Boolean).join(', ');
+const money = v => 'Rs. ' + Math.round(+v || 0);
+const dueCols = (o, f) => o.dues ? [o.dues.get(f.id) ? money(o.dues.get(f.id).paid) : '—', o.dues.get(f.id) ? money(o.dues.get(f.id).due) : '—'] : [];
+const dueHead = o => o.dues ? ['Paid ' + o.dues.fy, 'Due'] : [];
 
 const MAKERS = {
-  async directory(fams, o) { const { doc, B } = await newDoc('portrait', 'Family Head Directory', o.place); let i = 0;
-    tbl(doc, { startY: 27, head: [['#', 'Family ID', 'Head of family', 'Mobile', 'Gotra', 'Address', 'Members']], body: fams.map(f => [++i, f.family_code, f.head ? f.head.full_name : '—', f.hmob || '—', f.gotra || '—', addr(f), f.rows.length]),
-      columnStyles: { 0: { cellWidth: 9 }, 1: { cellWidth: 22 }, 6: { cellWidth: 16, halign: 'center' } }, didDrawPage: () => {} }); foot(doc, B); return doc; },
-  async allfamilies(fams, o) { const { doc, B } = await newDoc('landscape', 'All Families', o.place); let i = 0;
-    tbl(doc, { startY: 27, head: [['#', 'Family ID', 'Head', 'City', 'Gotra', 'Type', 'Mobile', 'Address', 'Members']], body: fams.map(f => [++i, f.family_code, f.head ? f.head.full_name : '—', f.locations.city, f.gotra || '—', f.family_type || '—', f.hmob || '—', f.address || '—', f.rows.length]), columnStyles: { 0: { cellWidth: 9 }, 8: { cellWidth: 16, halign: 'center' } } }); foot(doc, B); return doc; },
-  async detailed(fams, o) { const { doc, B } = await newDoc('landscape', 'Detailed Family Records', o.place); let y = 27;
+  async directory(fams, o) { const { doc, L, y } = await newDoc('portrait', 'Family Head Directory', o.place, o); let i = 0;
+    tbl(doc, L, 'Family Head Directory', { startY: y, head: [['#', 'Family ID', 'Head of family', 'Mobile', 'Gotra', 'Address', 'Members', ...dueHead(o)]], body: fams.map(f => [++i, f.family_code, f.head ? f.head.full_name : '—', f.hmob || '—', f.gotra || '—', addr(f), f.rows.length, ...dueCols(o, f)]),
+      columnStyles: { 0: { cellWidth: 9 }, 1: { cellWidth: 22 }, 6: { cellWidth: 16, halign: 'center' } } }); footers(doc, L); return doc; },
+  async allfamilies(fams, o) { const { doc, L, y } = await newDoc('landscape', 'All Families', o.place, o); let i = 0;
+    tbl(doc, L, 'All Families', { startY: y, head: [['#', 'Family ID', 'Head', 'City', 'Gotra', 'Type', 'Mobile', 'Address', 'Members', ...dueHead(o)]], body: fams.map(f => [++i, f.family_code, f.head ? f.head.full_name : '—', f.locations.city, f.gotra || '—', f.family_type || '—', f.hmob || '—', f.address || '—', f.rows.length, ...dueCols(o, f)]),
+      columnStyles: { 0: { cellWidth: 9 }, 1: { cellWidth: 22 }, 8: { cellWidth: 16, halign: 'center' } } }); footers(doc, L); return doc; },
+  async detailed(fams, o) { const { doc, L, y: y0 } = await newDoc('landscape', 'Detailed Family Records', o.place, o); let y = y0;
     for (const f of fams) {
-      if (y > 170) { doc.addPage(); y = 27; }
-      doc.setFillColor(...DG); doc.rect(8, y, 281, 7, 'F'); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-      doc.text(`${f.family_code}  ·  ${f.head ? f.head.full_name : '—'}  ·  ${f.locations.city}  ·  Gotra: ${f.gotra || '—'}  ·  ${f.hmob || ''}`, 10, y + 5);
-      tbl(doc, { startY: y + 7, margin: { left: 8, right: 8, top: 27, bottom: 12 }, head: [['Member ID', 'Name', 'Relation', 'Gender', 'Age', 'Education', 'Occupation', 'Marital', 'Mobile']],
-        body: f.rows.map(r => { const m = r.members; return [m.member_code || '—', m.full_name, REL_LABELS[r.relation] || r.relation, m.gender || '', ageText(m).replace(' yrs', ''), m.education || '', m.occupation || '', m.marital_status || '', mobOf(m)]; }), styles: { fontSize: 7.5, cellPadding: 1.5 } });
+      if (y > 165) y = nextPage(doc, L, 'Detailed Family Records');
+      doc.setFillColor(...L.th.dg); doc.rect(8, y, 281, 7, 'F'); doc.setFillColor(...L.th.go); doc.rect(8, y + 7, 281, .5, 'F'); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+      const dd = o.dues && o.dues.get(f.id); doc.text(`${f.family_code}  ·  ${f.head ? f.head.full_name : '—'}  ·  ${f.locations.city}  ·  Gotra: ${f.gotra || '—'}  ·  ${f.hmob || ''}` + (dd ? `  ·  Paid ${money(dd.paid)} / Due ${money(dd.due)}` : ''), 10, y + 5);
+      tbl(doc, L, 'Detailed Family Records', { startY: y + 8, head: [['Member ID', 'Name', 'Relation', 'Gender', 'Age', 'Education', 'Occupation', 'Marital', 'Mobile']],
+        body: f.rows.map(r => { const m = r.members; return [m.member_code || '—', m.full_name, REL_LABELS[r.relation] || r.relation, m.gender || '', ageText(m).replace(' yrs', ''), m.education || '', m.occupation || '', m.marital_status || '', mobOf(m)]; }), styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: L.th.go, lineWidth: .15 } });
       y = doc.lastAutoTable.finalY + 5; }
-    foot(doc, B); return doc; },
-  async citywise(fams, o) { const { doc, B } = await newDoc('portrait', 'City-wise Directory', o.place); const by = {}; fams.forEach(f => (by[f.locations.city] = by[f.locations.city] || []).push(f)); let y = 27;
+    footers(doc, L); return doc; },
+  async citywise(fams, o) { const { doc, L, y: y0 } = await newDoc('portrait', 'City-wise Directory', o.place, o); const by = {}; fams.forEach(f => (by[f.locations.city] = by[f.locations.city] || []).push(f)); let y = y0;
     for (const city of Object.keys(by).sort()) { const list = by[city], mem = list.reduce((a, f) => a + f.rows.length, 0);
-      if (y > 250) { doc.addPage(); y = 27; }
-      doc.setFillColor(...GO); doc.rect(8, y, 194, 8, 'F'); doc.setTextColor(20, 20, 20); doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text(`${city}   —   ${list.length} families · ${mem} members`, 10, y + 5.5);
-      tbl(doc, { startY: y + 8, head: [['Family ID', 'Head of family', 'Mobile', 'Gotra', 'Members']], body: list.map(f => [f.family_code, f.head ? f.head.full_name : '—', f.hmob || '—', f.gotra || '—', f.rows.length]), columnStyles: { 4: { halign: 'center', cellWidth: 18 } } });
+      if (y > 245) y = nextPage(doc, L, 'City-wise Directory');
+      doc.setFillColor(...L.th.go); doc.roundedRect(8, y, 194, 8, 2, 2, 'F'); doc.setTextColor(30, 30, 30); doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text(`${city}   —   ${list.length} families · ${mem} members`, 11, y + 5.5);
+      tbl(doc, L, 'City-wise Directory', { startY: y + 9, head: [['Family ID', 'Head of family', 'Mobile', 'Gotra', 'Members', ...dueHead(o)]], body: list.map(f => [f.family_code, f.head ? f.head.full_name : '—', f.hmob || '—', f.gotra || '—', f.rows.length, ...dueCols(o, f)]), columnStyles: { 4: { halign: 'center', cellWidth: 18 } } });
       y = doc.lastAutoTable.finalY + 6; }
-    foot(doc, B); return doc; },
-  async idcards(fams, o) { const { doc, B } = await newDoc('portrait', 'ID Cards', ''); doc.deletePage(1);
+    footers(doc, L); return doc; },
+  async idcards(fams, o) { await loadPdfLibs(); const doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }), L = await prep(o.cfg || getCfg());
     const { split } = await measurer(); const people = []; fams.forEach(f => f.rows.forEach(r => people.push({ f, r, m: r.members })));
     const mx = 12, my = 10, gx = 6, gy = 3;
-    for (let i = 0; i < people.length; i++) { if (i % 10 === 0) { doc.addPage(); doc.setFillColor(255, 255, 255); doc.rect(0, 0, 210, 297, 'F'); }
+    for (let i = 0; i < people.length; i++) { if (i % 10 === 0) { if (i) doc.addPage(); doc.setFillColor(255, 255, 255); doc.rect(0, 0, 210, 297, 'F'); }
       const k = i % 10, x = mx + (k % 2) * (CW + gx), y = my + Math.floor(k / 2) * (CH + gy), { f, r, m } = people[i];
-      drawPdf(doc, idSpec(await cardParts(m, r.relation, f, !!o.photos), split), x, y); }
-    foot(doc, B); return doc; },
-  async qrsheet(fams, o) { const { doc, B } = await newDoc('portrait', 'Family QR Sheet', o.place); const cw = 46, ch = 52, cols = 4, x0 = 9, y0 = 28; let n = 0;
-    for (const f of fams) { if (n && n % 20 === 0) { doc.addPage(); } const k = n % 20, x = x0 + (k % cols) * (cw + 2), y = y0 + Math.floor(k / cols) * (ch + 3);
-      doc.setDrawColor(...GO); doc.setLineWidth(.3); doc.rect(x, y, cw, ch, 'S'); doc.addImage(qrPng('CJBWS|' + (f.head ? f.head.full_name : '') + '|ID:' + f.family_code), 'PNG', x + 5, y + 2, 36, 36, undefined, 'FAST');
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...DG); doc.text(f.family_code || '', x + cw / 2, y + 43, { align: 'center' }); doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(40, 40, 40); doc.text(doc.splitTextToSize(f.head ? f.head.full_name : '—', cw - 4).slice(0, 2), x + cw / 2, y + 47.5, { align: 'center' }); n++; }
-    foot(doc, B); return doc; },
-  async stickers(fams, o) { const { doc } = await newDoc('portrait', '', ''); doc.deletePage(1); const cw = 70, ch = 37, cols = 3, per = 24;
-    fams.forEach((f, i) => { if (i % per === 0) { doc.addPage(); } const k = i % per, x = (k % cols) * cw, y = Math.floor(k / cols) * ch;
-      doc.setDrawColor(200, 200, 200); doc.setLineWidth(.1); doc.rect(x + .5, y + .5, cw - 1, ch - 1, 'S');
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...DG); doc.text(f.family_code || '', x + 4, y + 8); doc.setFontSize(8.5); doc.setTextColor(20, 20, 20); doc.text(doc.splitTextToSize(f.head ? f.head.full_name : '—', cw - 8).slice(0, 1), x + 4, y + 14);
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.text(doc.splitTextToSize(addr(f), cw - 8).slice(0, 3), x + 4, y + 19.5); doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.text(f.hmob || '', x + 4, y + ch - 4); });
+      drawPdf(doc, idSpec(await cardParts(m, r.relation, f, !!o.photos, f.head && f.head.full_name), split), x, y); }
+    footers(doc, L); return doc; },
+  async qrsheet(fams, o) { const { doc, L, y: y0 } = await newDoc('portrait', 'Family QR Sheet', o.place, o); const cw = 46, ch = 52, cols = 4, x0 = 9, per = 16; let n = 0, ty = y0;
+    for (const f of fams) { if (n && n % per === 0) ty = nextPage(doc, L, 'Family QR Sheet'); const k = n % per, x = x0 + (k % cols) * (cw + 2), y = ty + Math.floor(k / cols) * (ch + 3);
+      doc.setFillColor(...L.th.soft); doc.setDrawColor(...L.th.go); doc.setLineWidth(.4); doc.roundedRect(x, y, cw, ch, 2, 2, 'FD'); doc.addImage(qrPng('CJBWS|' + (f.head ? f.head.full_name : '') + '|ID:' + f.family_code), 'PNG', x + 5, y + 2, 36, 36, undefined, 'FAST');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...L.th.dg); doc.text(f.family_code || '', x + cw / 2, y + 43, { align: 'center' }); doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(40, 40, 40);
+      doc.text(doc.splitTextToSize(f.head ? f.head.full_name : '—', cw - 4).slice(0, 2), x + cw / 2, y + 47, { align: 'center' }); n++; }
+    footers(doc, L); return doc; },
+  async stickers(fams, o) { await loadPdfLibs(); const doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }), L = await prep(o.cfg || getCfg()), cw = 70, ch = 37, cols = 3, per = 24;
+    fams.forEach((f, i) => { if (i % per === 0 && i) doc.addPage(); const k = i % per, x = (k % cols) * cw, y = Math.floor(k / cols) * ch;
+      doc.setDrawColor(...L.th.go); doc.setLineWidth(.2); doc.rect(x + .5, y + .5, cw - 1, ch - 1, 'S'); doc.setFillColor(...L.th.lt); doc.rect(x + .5, y + .5, 2.2, ch - 1, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...L.th.dg); doc.text(f.family_code || '', x + 5, y + 8); doc.setFontSize(8.5); doc.setTextColor(20, 20, 20); doc.text(doc.splitTextToSize(f.head ? f.head.full_name : '—', cw - 9).slice(0, 1), x + 5, y + 14);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.text(doc.splitTextToSize(addr(f), cw - 9).slice(0, 3), x + 5, y + 19.5); doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.text(f.hmob || '', x + 5, y + ch - 4); });
     return doc; },
-  async attendance(fams, o) { const { doc, B } = await newDoc('portrait', o.title || 'Attendance Sheet', o.date || today()); let i = 0;
-    tbl(doc, { startY: 27, head: [['#', 'Family ID', 'Name of head', 'Mobile', 'Present', 'Signature']], body: fams.map(f => [++i, f.family_code, f.head ? f.head.full_name : '—', f.hmob || '', '', '']), styles: { fontSize: 8.5, cellPadding: 3.2 }, columnStyles: { 0: { cellWidth: 9 }, 1: { cellWidth: 22 }, 4: { cellWidth: 18 }, 5: { cellWidth: 40 } } }); foot(doc, B); return doc; },
-  async notice(fams, o) { const { doc, W, B } = await newDoc('portrait', '', ''); doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(...DG); doc.text('NOTICE', W / 2, 42, { align: 'center' });
-    doc.setDrawColor(...GO); doc.setLineWidth(.6); doc.line(70, 45, W - 70, 45); doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(60, 60, 60); doc.text('Date: ' + (o.date || today()), W - 15, 55, { align: 'right' });
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(20, 20, 20); doc.text(doc.splitTextToSize(o.title || '', W - 40), 20, 68);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.text(doc.splitTextToSize(o.body || '', W - 40), 20, 82, { lineHeightFactor: 1.5 });
-    doc.setFontSize(11); doc.text('Secretary / President', W - 20, 255, { align: 'right' }); doc.setFont('helvetica', 'bold'); doc.text(B.short_name || B.name || '', W - 20, 262, { align: 'right' }); foot(doc, B); return doc; }
+  async attendance(fams, o) { const { doc, L, y } = await newDoc('portrait', o.title || 'Attendance Sheet', o.date || tday(), o); let i = 0;
+    tbl(doc, L, o.title || 'Attendance Sheet', { startY: y, head: [['#', 'Family ID', 'Name of head', 'Mobile', 'Present', 'Signature']], body: fams.map(f => [++i, f.family_code, f.head ? f.head.full_name : '—', f.hmob || '', '', '']), styles: { fontSize: 8.5, cellPadding: 3.2, lineColor: L.th.go, lineWidth: .15 },
+      columnStyles: { 0: { cellWidth: 9 }, 1: { cellWidth: 22 }, 4: { cellWidth: 18 }, 5: { cellWidth: 45 } } }); footers(doc, L); return doc; },
+  async notice(fams, o) { return noticeDoc(o); }
 };
+
+// Notice / letter on the letterhead. Works without any family data. o: title, body, date, ref, to, category, sign_name, sign_title, size ('a4'|'a5'), cfg
+export async function noticeDoc(o) {
+  await loadPdfLibs(); const a5 = o.size === 'a5', doc = new window.jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: a5 ? 'a5' : 'a4' }), L = await prep(o.cfg || getCfg());
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), th = L.th, m = a5 ? 12 : 18, fs = a5 ? 10 : 11.5;
+  let y = headFull(doc, L, (o.category || 'Notice'), o.ref ? 'Ref. No.: ' + o.ref : '', o.date || tday()); const bottom = H - 14; y += 3;
+  if (o.to) { doc.setFont('helvetica', 'bold'); doc.setFontSize(fs); doc.setTextColor(20, 20, 20); const tl = doc.splitTextToSize('To: ' + o.to, W - 2 * m); doc.text(tl, m, y); y += tl.length * (fs * .5) + 3; }
+  if (o.title) { doc.setFont('helvetica', 'bold'); doc.setFontSize(fs + 2.5); doc.setTextColor(...th.dg); const tl = doc.splitTextToSize(o.title, W - 2 * m); doc.text(tl, W / 2, y, { align: 'center' }); y += tl.length * ((fs + 2.5) * .5) + 2;
+    doc.setDrawColor(...th.go); doc.setLineWidth(.7); doc.line(W / 2 - 30, y, W / 2 + 30, y); y += 8; }
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(fs); doc.setTextColor(25, 25, 25); const lh = fs * .56 * 1.45;
+  for (const ln of doc.splitTextToSize(o.body || '', W - 2 * m)) { if (y + lh > bottom - 28) { doc.addPage(); y = headSlim(doc, L, o.category || 'Notice') + 4; doc.setFont('helvetica', 'normal'); doc.setFontSize(fs); doc.setTextColor(25, 25, 25); } doc.text(ln, m, y); y += lh; }
+  if (y > bottom - 28) { doc.addPage(); y = headSlim(doc, L, o.category || 'Notice') + 4; }
+  const sy = Math.max(y + 14, bottom - 22); doc.setDrawColor(...th.dg); doc.setLineWidth(.4); doc.line(W - m - 55, sy, W - m, sy);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(fs - .5); doc.setTextColor(20, 20, 20); doc.text(o.sign_name || '', W - m, sy + 5, { align: 'right' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(fs - 1.5); doc.text((o.sign_title || 'Secretary') + (L.B.short_name ? ', ' + L.B.short_name : ''), W - m, sy + 10, { align: 'right' });
+  footers(doc, L); return doc;
+}
 export const DOCS = [['directory', '📒 Head Directory', 'Family ID, head, mobile, address'], ['allfamilies', '📋 All Families', 'One-page summary table'], ['detailed', '🗂 Detailed Records', 'Every family with all members'],
-  ['citywise', '🏙 City-wise Directory', 'Grouped by city with counts'], ['idcards', '🪪 ID Cards', 'One card per member, with QR (10 per page)'], ['qrsheet', '▦ Family QR Sheet', 'QR code for every family'],
-  ['stickers', '🏷 Address Stickers', '3 × 8 labels per A4 sheet'], ['attendance', '✍ Attendance Sheet', 'Head list with signature column'], ['notice', '📣 Notice', 'Letterhead notice with your text']];
-export async function makePdf(kind, fams, opts) { const doc = await MAKERS[kind](fams, opts); doc.save('chhipa-' + kind + '-' + new Date().toISOString().slice(0, 10) + '.pdf'); }
+  ['citywise', '🏙 City-wise Directory', 'Grouped by city with counts'], ['idcards', '🪪 ID Cards', 'One card per member: head, relation, QR (10 per page)'], ['qrsheet', '▦ Family QR Sheet', 'QR code for every family'],
+  ['stickers', '🏷 Address Stickers', '3 × 8 labels per A4 sheet'], ['attendance', '✍ Attendance Sheet', 'Head list with signature column']];
+export const DUES_DOCS = ['directory', 'allfamilies', 'detailed', 'citywise'];
+// mode 'save' downloads; 'view' returns a blob URL for the on-screen viewer
+export async function makePdf(kind, fams, opts, mode = 'save') { const doc = await MAKERS[kind](fams, opts), name = 'chhipa-' + kind + '-' + new Date().toISOString().slice(0, 10) + '.pdf';
+  if (mode === 'view') return { url: URL.createObjectURL(doc.output('blob')), name }; doc.save(name); }
+export async function makeNotice(opts, mode = 'save') { const doc = await noticeDoc(opts), name = 'chhipa-notice-' + new Date().toISOString().slice(0, 10) + '.pdf';
+  if (mode === 'view') return { url: URL.createObjectURL(doc.output('blob')), name }; doc.save(name); }

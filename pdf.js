@@ -76,9 +76,9 @@ export async function familyCardPdfClassic(fam, rows, ageOf = ageText) {
 }
 
 // Current Family Card PDF: draws the shared layout from fcard.js (identical to the on-screen View & Print card).
-export async function familyCardPdf(fam, rows, ageOf = ageText) {
+export async function familyCardPdf(fam, rows, ageOf = ageText, dues = null) {
   const { famParts, famSpec, FW, FH } = await import('./fcard.js'); const { measurer, drawPdf } = await import('./idcard.js');
-  const m = await measurer(), P = await famParts(fam, rows), pages = famSpec(fam, rows, P, m, ageOf);
+  const m = await measurer(), P = await famParts(fam, rows, dues), pages = famSpec(fam, rows, P, m, ageOf);
   const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   pages.forEach((S, i) => { if (i) doc.addPage(); drawPdf(doc, S); });
   doc.save('FamilyCard_' + safe(P.hm && P.hm.full_name) + '.pdf');

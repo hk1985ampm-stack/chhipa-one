@@ -4,7 +4,9 @@ import { REL_LABELS } from './options.js';
 import { brand, logoUrl } from './brand.js';
 import { photoUrl } from './photo.js';
 import { qrPng } from './pdf.js';
+import { THEMES, getCfg } from './letterhead.js';
 import { dataUrl } from './idcard.js';
+import { sb, isStateOrSuper } from './core.js';
 
 export const FW = 297, FH = 210;
 const DG = [13, 50, 30], GO = [180, 140, 40], CR = [250, 248, 238], WH = [255, 255, 255], INK = [20, 20, 20], GREY = [100, 100, 100];
@@ -14,18 +16,23 @@ const COLS = [['S/N', 12, 'c'], ['Name', 62, 'l'], ['Age', 12, 'c'], ['Gender', 
 const HEAD_H = 8, ROW_H = 7.2, T1 = 89, T2 = 9, BOTTOM = FH - 11;
 const mobOf = m => { const c = m && m.member_contacts; return (Array.isArray(c) ? c[0] : c)?.mobile || ''; };
 
-export async function famParts(fam, rows) {
+// Dues for the printed card: only when a State Admin / Super Admin ticked the box on the family page
+export async function duesFor(fam) {
+  try { if (!isStateOrSuper() || sessionStorage.getItem('chhipa_dues_' + fam.id) !== '1') return null;
+    const { data, error } = await sb.rpc('family_dues', { p_family: fam.id }); if (error || !data || !data.years.length) return null; const y = data.years[0]; return { fy: y.fy, paid: y.paid, due: y.due }; } catch { return null; }
+}
+export async function famParts(fam, rows, dues = null) {
   const B = brand.data || {}, head = rows.find(r => r.relation === 'head'), hm = head && head.members; let logo = null, photo = null, stamp = null;
   const lg = logoUrl(B.logo_path); if (lg) { try { logo = await dataUrl(lg); } catch {} }
   if (hm && hm.photo_path) { try { const u = await photoUrl(hm.photo_path); if (u) photo = await dataUrl(u); } catch {} }
   try { stamp = await dataUrl('stamp.png'); } catch {}
   const code = fam.family_code || 'PENDING';
-  return { logo, photo, stamp, hm, code, qr: qrPng('CJBWS|' + (hm ? hm.full_name : '') + '|ID:' + code), initials: (hm ? hm.full_name : '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase() };
+  return { logo, photo, stamp, hm, code, dues, qr: qrPng('CJBWS|' + (hm ? hm.full_name : '') + '|ID:' + code), initials: (hm ? hm.full_name : '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase() };
 }
 
 // m = { split, fit } measuring helpers (jsPDF) so lines break and truncate identically on screen and in the PDF
 export function famSpec(fam, rows, P, m, ageOf) {
-  const B = brand.data || {}, W = FW, H = FH, hm = P.hm, pages = [];
+  const th = THEMES[getCfg().theme] || THEMES.emerald, DG = th.dg, GO = th.go, CR = th.cr, B = brand.data || {}, W = FW, H = FH, hm = P.hm, pages = [];
   const quote = (fam.quote || '').trim() || B.footer_text || 'Together We Build a Stronger Community';
   const mk = () => { const S = []; pages.push(S); return S; };
   const R = (S, x, y, w, h, o = {}) => S.push({ k: 'r', x, y, w, h, ...o });
@@ -44,7 +51,7 @@ export function famSpec(fam, rows, P, m, ageOf) {
   T(S, W / 2, 13, m.fit(B.header_line1 || 'CHHIPA JAMAT BARAR WELFARE SOCIETY', 14, true, 215), { size: 14, bold: true, color: WH, align: 'center' });
   T(S, W / 2, 20, m.fit(B.header_line2 || 'Chandur Bazar, Maharashtra  -  All India', 7, false, 215), { size: 7, color: [200, 225, 200], align: 'center' });
   R(S, W - 30, 4, 20, 20, { fill: WH, stroke: GO, lw: .4, round: 1.5 }); S.push({ k: 'i', x: W - 28.5, y: 5.5, w: 17, h: 17, src: P.qr });
-  R(S, 2, 26, W - 4, 9, { fill: DG }); L(S, 2, 26, W - 2, 26, .5, GO); L(S, 2, 35, W - 2, 35, .5, GO);
+  R(S, 2, 26, W - 4, 9, { fill: DG }); L(S, 2, 35.6, W - 2, 35.6, .5, th.lt); L(S, 2, 26, W - 2, 26, .5, GO); L(S, 2, 35, W - 2, 35, .5, GO);
   T(S, W / 2, 32, 'FAMILY CARD', { size: 13, bold: true, color: WH, align: 'center' });
   R(S, 2, 35, W - 4, 42, { fill: WH, stroke: GO, lw: .3 });
   R(S, 5, 38, 30, 36, { fill: [220, 240, 230], stroke: GO, lw: .5 });
@@ -61,6 +68,7 @@ export function famSpec(fam, rows, P, m, ageOf) {
   if (P.stamp) S.push({ k: 'i', x: W - 38, y: 47, w: 26, h: 25, src: P.stamp });
   R(S, W / 2 - 32, 79, 64, 8, { fill: DG, stroke: GO, lw: .4, round: 2 });
   T(S, W / 2, 84.5, 'MEMBERS (' + rows.length + ')', { size: 10, bold: true, color: WH, align: 'center' });
+  if (P.dues) { R(S, 186, 79, 105, 8, { fill: [255, 244, 214], stroke: GO, lw: .4, round: 2 }); T(S, 238.5, 84.4, 'Annual donation ' + P.dues.fy + ':  Paid Rs. ' + Math.round(P.dues.paid) + '   |   Due Rs. ' + Math.round(P.dues.due), { size: 8, bold: true, color: DG, align: 'center' }); }
 
   // ---- members table (fixed row height, so every page lines up) ----
   const d = v => v || '—', cell = r => { const mm = r.members; return [d(''), d(mm.full_name), d(String(ageOf(mm)).replace(' yrs', '').replace('~', '')), d((mm.gender || '').replace(/^./, s => s.toUpperCase())), REL_PDF[r.relation] || REL_LABELS[r.relation] || r.relation, d(mm.education), d(mm.occupation), d(mm.marital_status), d(mobOf(mm))]; };
@@ -68,7 +76,7 @@ export function famSpec(fam, rows, P, m, ageOf) {
   rows.forEach((r, i) => {
     if (y + ROW_H > BOTTOM) { footer(cur); cur = mk(); base(cur, false); y = T2; tableHead(cur, y); y += HEAD_H; first = false; }
     const vals = cell(r); vals[0] = String(i + 1); let x = 4;
-    COLS.forEach(([, w, al], c) => { R(cur, x, y, w, ROW_H, { fill: i % 2 ? [240, 250, 244] : WH, stroke: GO, lw: .2 });
+    COLS.forEach(([, w, al], c) => { R(cur, x, y, w, ROW_H, { fill: i % 2 ? th.soft : WH, stroke: GO, lw: .2 });
       T(cur, al === 'c' ? x + w / 2 : x + 2, y + 4.7, m.fit(vals[c], 8, true, w - 4), { size: 8, bold: true, color: [10, 10, 10], align: al === 'c' ? 'center' : 'left' }); x += w; });
     y += ROW_H;
   });

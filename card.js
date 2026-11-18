@@ -3,7 +3,7 @@ import { REL_LABELS } from './options.js';
 import { brand, logoUrl } from './brand.js';
 import { photoUrl } from './photo.js';
 import { load, qrPng } from './pdf.js';
-import { famParts, famSpec, FW, FH } from './fcard.js';
+import { famParts, famSpec, FW, FH, duesFor } from './fcard.js';
 import { measurer, toHtml, drawPdf } from './idcard.js';
 
 const REL_PDF = { head: 'Khud (Self)', spouse: 'Patni / Pati (Spouse)', son: 'Beta (Son)', daughter: 'Beti (Daughter)', 'daughter-in-law': 'Bahu (Daughter-in-law)', 'son-in-law': 'Damad (Son-in-law)',
@@ -23,7 +23,7 @@ export async function render(main, id) {
   const head = rows.find(r => r.relation === 'head'), hm = head && head.members, code = fam.family_code || 'PENDING';
   await load('qrcode.min.js');
   const text = [`*${B.name || 'Chhipa Jamat Barar Welfare Society'}*`, `Family ${fam.family_code || '(ID on approval)'}`, hm ? `Head: ${hm.full_name}` : null, `${fam.locations.city}, ${fam.locations.state}`, fam.address, `Members: ${rows.length}`].filter(Boolean).join('\n');
-  const m = await measurer(), P = await famParts(fam, rows), pages = famSpec(fam, rows, P, m, ageText);
+  const m = await measurer(), P = await famParts(fam, rows, await duesFor(fam)), pages = famSpec(fam, rows, P, m, ageText);
   const mm = 96 / 25.4, holder = h('div', { class: 'fc-pages' });
   const wraps = pages.map(S => { const c = toHtml(S, FW, FH); return h('div', { class: 'fpw' }, c); }); holder.append(...wraps);
   const fit = () => { const s = Math.min(1.6, ((main.clientWidth || innerWidth) - 4) / (FW * mm)); wraps.forEach(w => { w.firstChild.style.transform = 'scale(' + s + ')'; w.firstChild.style.transformOrigin = 'top left'; w.style.width = (FW * mm * s) + 'px'; w.style.height = (FH * mm * s) + 'px'; }); };

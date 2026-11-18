@@ -6,7 +6,9 @@ import { photoUrl, pickPhoto, uploadPhotos } from './photo.js';
 import { familyCardPdf } from './pdf.js';
 import { myLocations } from './core.js';
 const initials = n => (n || '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
-import { optList } from './core.js';
+import { optList, isStateOrSuper } from './core.js';
+import { cfBlock, cfSummary } from './customfields.js';
+import { duesFor } from './fcard.js';
 
 const relLabel = r => REL_LABELS[r] || r;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -14,7 +16,7 @@ const REASON = { married: 'Married — moved to husband’s family', removed: 'R
 
 export async function render(main, id) {
   const q1 = () => sb.from('families').select('*, locations(code,city,state)').eq('id', id).maybeSingle();
-  const q2 = () => sb.from('family_memberships').select('id,relation,is_active,end_date,reason,created_at, members(id,member_code,full_name,father_name,gender,dob,birth_year_est,photo_path,status,education,occupation,marital_status,record_state,mother_name,version,removed_at,removed_reason, member_contacts(mobile,whatsapp,email))').eq('family_id', id);
+  const q2 = () => sb.from('family_memberships').select('id,relation,is_active,end_date,reason,created_at, members(id,member_code,full_name,father_name,gender,dob,birth_year_est,photo_path,status,education,occupation,marital_status,record_state,mother_name,version,removed_at,removed_reason,extra, member_contacts(mobile,whatsapp,email))').eq('family_id', id);
   const q3 = () => sb.from('family_history').select('*').eq('family_id', id).order('created_at', { ascending: false });
   const [f, ms, hs] = await Promise.all([cached('fam_' + id, q1), cached('mem_' + id, q2), cached('his_' + id, q3)]);
   const offline = f.offline || ms.offline;
@@ -141,11 +143,13 @@ export async function render(main, id) {
     const head = rows.find(r => r.relation === 'head'), sp = rows.find(r => r.relation === 'spouse' && live(r));
     const ctx = { head: head && { name: head.members.full_name, gender: head.members.gender, father_name: head.members.father_name }, spouse: sp && { name: sp.members.full_name },
       people: rows.filter(live).map(r => ({ v: r.members.id, label: r.members.full_name, relation: r.relation, gender: r.members.gender })) };
-    const mf = memberForm({}, { ctx });
-    card('Add member · सदस्य जोड़ें', mf.el, bar(sub('Add', async b => {
+    const mf = memberForm({}, { ctx }), cf = cfBlock();
+    card('Add member · सदस्य जोड़ें', mf.el, cf.el, bar(sub('Add', async b => {
       const e = mf.validate(); if (e) return toast(e); b.disabled = true;
-      const { error } = await sb.rpc('member_add', { p_family: id, p: mf.read() });
-      error ? (b.disabled = false, toast(friendly(error))) : (toast('Member added'), reload()); })));
+      const { data: nid, error } = await sb.rpc('member_add', { p_family: id, p: mf.read() });
+      if (error) { b.disabled = false; return toast(friendly(error)); }
+      const ex = cf.read(); if (ex && Object.values(ex).some(Boolean) && nid) await sb.rpc('member_set_extra', { p_id: nid, p: ex });
+      toast('Member added'); reload(); })));
   }
 
   const canEdit = isApprover() && fam.status === 'approved' && !offline && !fam.removed_at;
@@ -154,10 +158,21 @@ export async function render(main, id) {
   const direct = isApprover() || ownOpen;
   const transfer = async () => {
     const ls = (await myLocations()).filter(l => l.id !== fam.location_id); if (!ls.length) return toast('You have no other location to move this family to');
-    const sel = h('select', {}, ls.map(l => h('option', { value: l.id }, l.city))), why = h('input', { placeholder: 'Reason, e.g. moved house' }), err = h('p', { class: 'err' }), box = h('div', { class: 'card' });
-    box.append(h('h3', {}, 'Transfer to another location'), h('p', { class: 'muted s' }, 'The Family ID stays the same. The move is recorded in the history.'), h('label', {}, 'Move to'), sel, h('label', {}, 'Reason *'), why, err,
-      h('div', { class: 'actions' }, h('button', { class: 'btn alt', onclick: () => box.remove() }, 'Cancel'), h('button', { class: 'btn', onclick: async ev => { ev.target.disabled = true; const { error } = await sb.rpc('family_transfer', { p_family: fam.id, p_to: sel.value, p_reason: why.value }); if (error) { ev.target.disabled = false; return (err.textContent = friendly(error)); } toast('Family transferred'); location.reload(); } }, 'Transfer')));
+    const sel = h('select', {}, ls.map(l => h('option', { value: l.id }, l.city))), why = selectOther(optList('transfer_reason'), ''), note = h('input', { placeholder: 'Extra note (optional)' }), err = h('p', { class: 'err' }), box = h('div', { class: 'card' });
+    box.append(h('h3', {}, 'Transfer to another location'), h('p', { class: 'muted s' }, 'The Family ID stays the same. The move and the reason are recorded in the history, and the admins of the new location are notified.'), h('label', {}, 'Move to'), sel, h('label', {}, 'Reason *'), why.el, h('label', {}, 'Note'), note, err,
+      h('div', { class: 'actions' }, h('button', { class: 'btn alt', onclick: () => box.remove() }, 'Cancel'), h('button', { class: 'btn', onclick: async ev => { ev.target.disabled = true; const { error } = await sb.rpc('family_transfer', { p_family: fam.id, p_to: sel.value, p_reason: [why.get(), note.value.trim()].filter(Boolean).join(' — ') }); if (error) { ev.target.disabled = false; return (err.textContent = friendly(error)); } toast('Family transferred'); location.reload(); } }, 'Transfer')));
     document.querySelector('main').append(box); box.scrollIntoView({ behavior: 'smooth' });
+  };
+  const allIds = async ev => { const b = ev.currentTarget; b.disabled = true; try { const { makePdf } = await import('./bulkpdf.js'); const act = rows.filter(r => live(r) && r.members && !r.members.removed_at && r.members.status === 'active');
+      await makePdf('idcards', [{ ...fam, rows: act, head: (act.find(r => r.relation === 'head') || {}).members }], { photos: true }); } catch (x) { toast(friendly(x)); } b.disabled = false; };
+  const duesPanel = async () => {
+    const { data, error } = await sb.rpc('family_dues', { p_family: id }); if (error) return toast(friendly(error));
+    const key = 'chhipa_dues_' + id, inc = h('input', { type: 'checkbox', checked: sessionStorage.getItem(key) === '1', onchange: () => sessionStorage.setItem(key, inc.checked ? '1' : '0') }), inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
+    card('Dues & Donation · चंदा', h('p', { class: 'muted s' }, 'Annual donation ' + inr(data.annual) + ' per family. Visible only to State Admin and Super Admin.'),
+      h('div', { class: 'list' }, data.years.map(y => h('div', { class: 'item' }, h('span', {}, h('b', {}, y.fy), ' · Paid ' + inr(y.paid)), h('b', { style: 'color:' + (+y.due > 0 ? '#b91c1c' : '#15803d') }, +y.due > 0 ? 'Due ' + inr(y.due) : 'Paid up')))),
+      data.receipts.length ? h('div', { class: 'list' }, h('b', {}, 'Recent receipts'), data.receipts.map(x => h('div', { class: 'item' }, h('span', {}, x.receipt_no + ' · ' + x.paid_on + ' · ' + x.mode), h('span', { style: x.voided ? 'text-decoration:line-through;opacity:.6' : '' }, inr(x.amount))))) : h('p', { class: 'muted' }, 'No receipts yet.'),
+      h('label', { class: 'chk' }, inc, ' Include these dues when I print this family’s Family Card (tick each time you need it)'),
+      h('div', { class: 'actions' }, h('a', { class: 'btn alt', href: '#donations' }, 'Open Donations'), h('button', { class: 'btn', onclick: close }, 'Close')));
   };
   const canRemoveFam = !offline && !fam.removed_at && (isApprover() || (fam.created_by === state.profile.user_id && ['draft', 'pending', 'rejected'].includes(fam.status)));
   const isSuper = state.profile.role === 'super_admin';
@@ -196,10 +211,10 @@ export async function render(main, id) {
   function editMember(r) {
     const m = r.members, c = Array.isArray(m.member_contacts) ? m.member_contacts[0] : m.member_contacts;
     const mf = memberForm({ name: m.full_name, relation: r.relation, gender: m.gender, dob: m.dob, age: m.birth_year_est ? new Date().getFullYear() - m.birth_year_est : '', father_name: m.father_name, mother_name: m.mother_name,
-      education: m.education, occupation: m.occupation, marital_status: m.marital_status, mobile: c && c.mobile, whatsapp: c && c.whatsapp, email: c && c.email }, { fixedRelation: r.relation });
-    card('Edit member · ' + m.full_name, mf.el, bar(sub('Save', async b => {
+      education: m.education, occupation: m.occupation, marital_status: m.marital_status, mobile: c && c.mobile, whatsapp: c && c.whatsapp, email: c && c.email }, { fixedRelation: r.relation }), cf = cfBlock(m.extra || {});
+    card('Edit member · ' + m.full_name, mf.el, cf.el, bar(sub('Save', async b => {
       const e = mf.validate(); if (e) return toast(e); b.disabled = true;
-      const { photo, ...pl } = mf.read();
+      const { photo, ...pl } = mf.read(); const ex = cf.read(); if (ex) pl.extra = ex;
       if (!direct) { const { error: er } = await sb.rpc('change_request_submit', { p_kind: 'member_edit', p_target: m.id, p: pl }); if (er) { b.disabled = false; return toast(friendly(er)); } toast('Sent to your admin for approval'); return close(); }
       const { data, error } = await sb.rpc('member_update', { p_id: m.id, p: pl, p_version: m.version });
       if (error) { b.disabled = false; return toast(friendly(error)); }
@@ -221,7 +236,7 @@ export async function render(main, id) {
     h('div', { class: 'hero-btns' },
       hmobile ? h('a', { class: 'hb call', href: 'tel:' + hmobile }, h('b', {}, '📞 Call'), h('span', {}, hmobile)) : h('div', { class: 'hb off' }, h('b', {}, '📞 Call'), h('span', {}, 'No number')),
       hmobile ? h('a', { class: 'hb wa', target: '_blank', rel: 'noopener', href: 'https://wa.me/91' + hmobile }, h('b', {}, '💬 WhatsApp'), h('span', {}, 'Send message')) : h('div', { class: 'hb off' }, h('b', {}, '💬 WhatsApp'), h('span', {}, 'No number')),
-      h('button', { class: 'hb pdf', onclick: async e => { const b = e.currentTarget; b.disabled = true; try { await familyCardPdf(fam, rows.filter(live)); } catch (x) { toast(friendly(x)); } b.disabled = false; } }, h('b', {}, '📄 PDF'), h('span', {}, 'Download card'))),
+      h('button', { class: 'hb pdf', onclick: async e => { const b = e.currentTarget; b.disabled = true; try { await familyCardPdf(fam, rows.filter(live), undefined, await duesFor(fam)); } catch (x) { toast(friendly(x)); } b.disabled = false; } }, h('b', {}, '📄 PDF'), h('span', {}, 'Download card'))),
     h('div', { class: 'hero-links noprint' }, h('a', { href: '#registry' }, '← Registry'), h('a', { href: '#card/' + id }, '🖨 View / Print')));
   const tile = (k, v) => h('div', { class: 'it' }, h('span', {}, k), h('b', {}, v || '—'));
   const infoGrid = () => h('div', { class: 'card' }, h('h3', { style: 'margin-top:0' }, 'Family Information'),
@@ -236,7 +251,8 @@ export async function render(main, id) {
     canEdit ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn alt', onclick: editFam }, 'Edit details'), h('button', { class: 'btn', onclick: addMember }, '+ Add member'), h('button', { class: 'btn alt', onclick: headForm }, 'Change head')) : null,
     !canEdit && (canRequest || ownOpen) ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn alt', onclick: editFam }, direct ? 'Edit details' : 'Request change'), ownOpen ? h('button', { class: 'btn alt', onclick: addMember }, '+ Add member') : null,
       fam.status === 'rejected' && (ownOpen || isApprover()) ? h('button', { class: 'btn', onclick: async () => { const { error } = await sb.rpc('family_resubmit', { p_id: id }); error ? toast(friendly(error)) : (toast('Resubmitted for approval'), reload()); } }, '↻ Fix done · Resubmit') : null) : null,
-    (isApprover() && !offline && !fam.removed_at && fam.status === 'approved') ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn alt', onclick: transfer }, '⇄ Transfer to another location')) : null,
+    (isApprover() && !offline && !fam.removed_at && fam.status === 'approved') ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn alt', onclick: transfer }, '⇄ Transfer to another location'),
+      h('button', { class: 'btn alt', onclick: allIds }, '🪪 All ID cards (this family)'), isStateOrSuper() ? h('button', { class: 'btn', onclick: duesPanel }, '💰 Dues & Donation') : null) : null,
     canRemoveFam ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn bad', onclick: removeFam }, 'Remove family (wrong / test entry)')) : null,
     fam.removed_at ? h('div', { class: 'card dupwarn' }, h('b', {}, 'This family was removed.'), h('p', { class: 'muted' }, fam.removed_reason || ''), h('div', { class: 'actions-card' }, isApprover() ? h('button', { class: 'btn', onclick: () => run(sb.rpc('family_restore', { p_id: id }), 'Family restored') }, 'Restore family') : null, isSuper ? h('button', { class: 'btn bad', onclick: purgeFam }, 'Delete permanently') : null)) : null,
     headGone ? h('div', { class: 'card dupwarn' }, h('b', {}, 'The family head has passed away.'), h('p', { class: 'muted' }, 'Choose the new head (the wife is suggested).'), h('button', { class: 'btn', onclick: headForm }, 'Choose new head')) : null,
@@ -247,7 +263,7 @@ export async function render(main, id) {
         h('div', { class: 'mem-top' }, memAvatar(m), h('div', { class: 'mem-txt' },
           h('div', { class: 'item' }, h('span', {}, h('b', {}, m.full_name), ' · ', relLabel(r.relation)), m.member_code ? h('span', { class: 'muted nowrap' }, m.member_code) : pill(m.record_state)),
           h('div', { class: 'muted', style: 'font-size:14px' }, [m.gender, ageText(m), m.marital_status, m.education, m.occupation, mobile(m),
-            m.status === 'deceased' ? 'Deceased' : gone ? 'Removed' + (m.removed_reason ? ': ' + m.removed_reason : '') : hist ? (REASON[r.reason] || 'Historical') : null].filter(Boolean).join(' · ')))),
+            ...cfSummary(m), m.status === 'deceased' ? 'Deceased' : gone ? 'Removed' + (m.removed_reason ? ': ' + m.removed_reason : '') : hist ? (REASON[r.reason] || 'Historical') : null].filter(Boolean).join(' · ')))),
         (adm || medit) && !fam.removed_at ? h('div', { class: 'mem-btns' },
           !offline ? h('a', { class: 'btn alt sm', href: '#idcard/' + r.members.id }, '🪪 ID Card') : null,
           medit ? h('button', { class: 'btn alt sm', onclick: () => editMember(r) }, direct ? '✏️ Edit' : '✏️ Request edit') : null,

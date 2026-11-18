@@ -192,3 +192,16 @@ button.tile{font:inherit;text-align:left;cursor:pointer}.tile b{font-size:15px}.
 .fc-pages{display:flex;flex-direction:column;align-items:center;gap:10px}.fpw{overflow:hidden;box-shadow:0 2px 10px #0003;background:#faf8ee;flex:none}
 .fpw .idc{box-shadow:none;border-radius:0;overflow:hidden}
 @media print{body.idprint .fc-pages{display:block;gap:0}body.idprint .fpw{width:297mm!important;height:210mm!important;box-shadow:none;page-break-after:always;break-after:page;overflow:hidden}body.idprint .fpw:last-child{page-break-after:auto}body.idprint .fpw .idc{transform:none!important}}
+/* family page hero: links on their own row, as buttons (no overlap) */
+.hero{flex-wrap:wrap}.hero-links{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-start;margin:4px 0 0}
+.hero-links a,main .hero-links a{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);color:#fff!important;text-decoration:none!important;border-radius:12px;padding:9px 14px;font-weight:700;font-size:14px;white-space:nowrap}
+.hero-links a:hover{background:rgba(255,255,255,.24)}
+/* Print Center */
+.doc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:12px 0}
+.tile.doc{display:flex;flex-direction:column;gap:6px;cursor:default}.doc-btns{display:flex;gap:8px;margin-top:6px}.doc-btns .btn{flex:1;min-width:0}
+.lh-prev{margin:8px 0}.lh-band{display:flex;gap:12px;align-items:center;color:#fff;border-radius:12px;padding:12px 14px}.lh-band .logo{width:48px;height:48px;background:#fff;border-radius:50%;padding:3px;border:2px solid #facc15}
+.lh-band b{font-size:15px}.lh-band .s{font-size:12px;opacity:.95}.lh-band .xs{font-size:11px;opacity:.9;margin-top:2px}
+.pdfview{position:fixed;inset:0;z-index:300;background:#1c1c1c;display:flex;flex-direction:column}.pv-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px;background:#0d3220;color:#fff}.pv-bar b{margin-right:auto}
+.pdfview iframe{flex:1;width:100%;border:0;background:#fff}.pdfview p{margin:0;padding:6px 10px;background:#0d3220;color:#cfe}
+details.card>summary{cursor:pointer;font-weight:700;font-size:16px}
+.doc-grid{align-items:stretch}.tile.doc .doc-btns{margin-top:auto}details.card>summary .hi{margin-left:8px}

@@ -1,10 +1,11 @@
 // Member ID card (85.6 × 54 mm, credit-card size). ONE layout list drives both the on-screen card and the PDF,
 // so what you see is exactly what prints. Coordinates are millimetres; text y is the baseline (like the PDF).
-import { sb, h } from './core.js';
+import { sb, h, ageText } from './core.js';
 import { REL_LABELS } from './options.js';
 import { brand, logoUrl } from './brand.js';
 import { photoUrl } from './photo.js';
 import { loadPdfLibs, qrPng } from './pdf.js';
+import { THEMES, getCfg } from './letterhead.js';
 
 export const CW = 85.6, CH = 54;
 const DG = [13, 50, 30], GO = [180, 140, 40], CR = [250, 248, 238], GREY = [100, 100, 100], INK = [20, 20, 20];
@@ -14,10 +15,11 @@ const mobOf = m => { const c = m && m.member_contacts; return (Array.isArray(c) 
 
 // split(text, size, bold, maxW) -> lines  (measured with jsPDF so screen and PDF break lines identically)
 export function idSpec(p, split) {
+  const th = THEMES[getCfg().theme] || THEMES.emerald, DG = th.dg, GO = th.go, CR = th.cr, LT = th.lt;
   const B = brand.data || {}, S = [], T = (x, y, s, o = {}) => S.push({ k: 't', x, y, s, size: o.size || 7, bold: !!o.bold, italic: !!o.italic, color: o.color || INK, align: o.align || 'left' });
   S.push({ k: 'r', x: 0, y: 0, w: CW, h: CH, fill: CR });
   S.push({ k: 'r', x: 0, y: 0, w: CW, h: 12, fill: DG });
-  S.push({ k: 'r', x: 0, y: 12, w: CW, h: .7, fill: GO });
+  S.push({ k: 'r', x: 0, y: 12, w: CW, h: .7, fill: GO }); S.push({ k: 'r', x: 0, y: 12.7, w: CW, h: .5, fill: LT });
   const cx = p.logo ? 49 : CW / 2;
   if (p.logo) { S.push({ k: 'c', x: 8, y: 6, r: 4.6, fill: [255, 255, 255] }); S.push({ k: 'i', x: 4.2, y: 2.2, w: 7.6, h: 7.6, src: p.logo }); }
   const org = split(B.header_line1 || B.name || 'CHHIPA JAMAT BARAR WELFARE SOCIETY', 6.5, true, p.logo ? 66 : 76).slice(0, 2);
@@ -29,8 +31,10 @@ export function idSpec(p, split) {
   split(p.name, 8.5, true, 54).slice(0, 2).forEach((ln, i) => T(28, 19.6 + i * 3.6, ln, { size: 8.5, bold: true }));
   T(28, 28, 'Member ID', { size: 5.2, color: GREY }); T(28, 31.4, p.mcode || '—', { size: 8, bold: true });
   T(28, 35.4, 'Family ID', { size: 5.2, color: GREY }); T(28, 38.8, p.fcode || '—', { size: 8, bold: true });
-  T(3, 47, p.rel + (p.city ? ' · ' + p.city : ''), { size: 6, color: GREY });
-  if (p.mobile) T(3, 51, p.mobile, { size: 6.5, bold: true });
+  const rl = p.relToHead === 'Head of Family' ? 'Head of Family' : p.relToHead ? p.relToHead + ' of Head' : p.rel;
+  T(3, 45.6, 'Relation to Head: ' + rl, { size: 5.6, bold: true, color: DG });
+  if (p.headName) T(3, 48.7, 'Family Head: ' + p.headName, { size: 5.8, bold: true });
+  T(3, 51.6, [p.gender, p.age, p.city].filter(Boolean).join(' · ') + (p.mobile ? '  ·  ' + p.mobile : ''), { size: 5.4, color: GREY });
   S.push({ k: 'r', x: 62.6, y: 30, w: 20.4, h: 20.4, fill: [255, 255, 255], stroke: GO, lw: .35, round: 1.2 });
   S.push({ k: 'i', x: 63.8, y: 31.2, w: 18, h: 18, src: p.qr });
   S.push({ k: 'r', x: .25, y: .25, w: CW - .5, h: CH - .5, stroke: GO, lw: .5 });
@@ -61,23 +65,24 @@ export function toHtml(S, W = CW, H = CH) {
 }
 
 // Gather everything one card needs (photo/logo/QR as embedded images)
-export async function cardParts(m, rel, fam, withPhoto = true) {
+export async function cardParts(m, rel, fam, withPhoto = true, headName = '') {
   const B = brand.data || {}; let logo = null, photo = null;
   const lg = logoUrl(B.logo_path); if (lg) { try { logo = await dataUrl(lg); } catch {} }
   if (withPhoto && m.photo_path) { try { const u = await photoUrl(m.photo_path); if (u) photo = await dataUrl(u); } catch {} }
   return { logo, photo, qr: qrPng('CJBWS|MEMBER|' + (m.member_code || '') + '|ID:' + (fam.family_code || '')), initials: m.full_name.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase(), name: m.full_name, mcode: m.member_code, fcode: fam.family_code,
-    rel: REL_LABELS[rel] || rel, city: fam.locations && fam.locations.city, mobile: mobOf(m) };
+    rel: REL_LABELS[rel] || rel, relToHead: rel === 'head' ? 'Head of Family' : (REL_LABELS[rel] || rel), headName: headName || (rel === 'head' ? m.full_name : ''), gender: m.gender ? m.gender[0].toUpperCase() + m.gender.slice(1) : '', age: m.dob || m.birth_year_est ? ageText(m).replace('~', '') : '', city: fam.locations && fam.locations.city, mobile: mobOf(m) };
 }
 export async function measurer() { await loadPdfLibs(); const doc = new window.jspdf.jsPDF({ unit: 'mm', format: [CW, CH], orientation: 'landscape' }); return { doc, split: (t, size, bold, w) => { doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(size); return doc.splitTextToSize(t, w); },
     fit: (t, size, bold, w) => { doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(size); t = String(t); if (doc.getTextWidth(t) <= w) return t; while (t.length > 1 && doc.getTextWidth(t + '…') > w) t = t.slice(0, -1); return t + '…'; } }; }
 
 export async function render(main, id) {
-  const { data, error } = await sb.from('members').select('id,member_code,full_name,photo_path,status, member_contacts(mobile), family_memberships(relation,is_active, families(id,family_code,locations(city)))').eq('id', id).maybeSingle();
+  const { data, error } = await sb.from('members').select('id,member_code,full_name,photo_path,status,gender,dob,birth_year_est, member_contacts(mobile), family_memberships(relation,is_active, families(id,family_code,locations(city)))').eq('id', id).maybeSingle();
   if (error) throw error; if (!data) return main.append(h('p', { class: 'err' }, 'Member not found, or you do not have access.'));
   const fm = (data.family_memberships || []).find(x => x.is_active && x.families) || (data.family_memberships || [])[0]; if (!fm) return main.append(h('p', { class: 'err' }, 'This member is not in a family yet.'));
   const withPh = h('input', { type: 'checkbox', checked: true }), holder = h('div', { class: 'idc-wrap' }), note = h('p', { class: 'muted s noprint' }, 'Credit-card size (85.6 × 54 mm). The screen card and the PDF use the same layout.');
+  const hq = await sb.from('family_memberships').select('members(full_name)').eq('family_id', fm.families.id).eq('relation', 'head').eq('is_active', true).maybeSingle(), headName = (hq.data && hq.data.members && hq.data.members.full_name) || '';
   let S; const { doc, split } = await measurer();
-  const build = async () => { S = idSpec(await cardParts(data, fm.relation, fm.families, withPh.checked), split); const card = toHtml(S); holder.replaceChildren(card); fit(); };
+  const build = async () => { S = idSpec(await cardParts(data, fm.relation, fm.families, withPh.checked, headName), split); const card = toHtml(S); holder.replaceChildren(card); fit(); };
   const fit = () => { const c = holder.firstChild; if (!c) return; const px = 85.6 * 96 / 25.4, s = Math.min(3, ((main.clientWidth || innerWidth) - 8) / px); c.style.transform = 'scale(' + s + ')'; holder.style.height = (54 * 96 / 25.4 * s) + 'px'; };
   const pdf = async () => { const d = new window.jspdf.jsPDF({ unit: 'mm', format: [CW, CH], orientation: 'landscape' }); drawPdf(d, S); d.save('id-' + (data.member_code || 'card') + '.pdf'); };
   main.append(h('div', { class: 'backlink noprint' }, h('a', { href: '#family/' + fm.families.id }, '← Family')), h('h2', { class: 'noprint' }, 'ID Card · ' + data.full_name), holder, note,

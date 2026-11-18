@@ -1,8 +1,8 @@
-import { sb, h, hi, state, ROLE_LABEL } from './core.js';
+import { sb, h, hi, state, ROLE_LABEL, isStateOrSuper } from './core.js';
 import { lang, UR } from './i18n.js';
 import { logoImg, brandName, brandSub, brand } from './brand.js';
 
-const APP_VERSION = 'v19 · Team, Transfer, Registration & Aligned Cards';
+const APP_VERSION = 'v21 · Letterheads, Dues & Custom Lists';
 const tile = (href, en, hindi, soon, badge) =>
   h(soon ? 'div' : 'a', { class: 'tile' + (soon ? ' soon' : ''), href: soon ? null : href },
     h('span', { class: 'en' }, en), h('span', { class: 'hi' }, lang.v === 'ur' ? (UR[en] || hindi) : hindi), soon ? h('span', { class: 'tag' }, 'Coming in Phase ' + soon) : null, badge ? h('span', { class: 'badge' }, String(badge)) : null);
@@ -20,7 +20,7 @@ export async function render(main) {
       tile('#events', 'Life Events', 'जीवन घटनाएँ'), tile('#notifications', 'Notifications', 'सूचनाएँ', false, unread),
       tile('#reports', 'Reports', 'रिपोर्ट'), tile('#reports/quality', 'Data Quality', 'डेटा जाँच'),
       appr ? tile('#registry/removed', 'Removed Entries', 'हटाई गई प्रविष्टियाँ') : null]],
-    ['welfare', ['💚 ', hi('Welfare', 'कल्याण')], [appr ? tile('#donations', 'Annual Donation', 'वार्षिक चंदा') : null, tile('#zakat', 'Zakat Calculator', 'ज़कात कैलकुलेटर')]],
+    ['welfare', ['💚 ', hi('Welfare', 'कल्याण')], [isStateOrSuper() ? tile('#donations', 'Annual Donation', 'वार्षिक चंदा') : null, tile('#zakat', 'Zakat Calculator', 'ज़कात कैलकुलेटर')]],
     ['community', ['🤝 ', hi('Community', 'समुदाय')], [tile('#announce', 'Announcements', 'घोषणाएँ'), tile('#cevents', 'Events', 'कार्यक्रम'), tile('#meetings', 'Meetings', 'बैठक'), tile('#sevaks', 'Sevaks', 'सेवक')]],
     ...(appr ? [['office', ['🏢 ', hi('Office', 'कार्यालय')], [
       tile('#registry/pending', 'Pending Approvals', 'लंबित स्वीकृति', false, pend),
