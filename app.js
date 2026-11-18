@@ -71,7 +71,7 @@ function loginView() {
     err.textContent = '';
     if (!email.value.trim() || pass.value.length < 8) return (err.textContent = 'Enter the invited email and a password of at least 8 characters.');
     btn.disabled = true; const { data, error } = await sb.auth.signUp({ email: email.value.trim(), password: pass.value }); btn.disabled = false;
-    if (error) err.textContent = error.message; else if (!data.session) { err.className = 'ok'; err.textContent = 'Account created. Please confirm the email we sent you, then sign in.'; }
+    if (error) err.textContent = /signups? not allowed/i.test(error.message) ? 'Self sign-up is switched off. Please ask your admin to create your login (or switch sign-ups on), then sign in here.' : error.message; else if (!data.session) { err.className = 'ok'; err.textContent = 'Account created. Please confirm the email we sent you, then sign in.'; }
   };
   root.replaceChildren(h('div', { class: 'login' },
     h('div', { class: 'hero-login' }, logoImg(84), h('h1', {}, 'Chhipa One'), h('p', {}, brandName()), brandSub() ? h('small', {}, brandSub().toUpperCase()) : null),

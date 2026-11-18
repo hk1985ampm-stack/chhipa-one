@@ -23,8 +23,8 @@ export async function render(main) {
     if (!email.value.trim() || !name.value.trim()) return toast('Enter email and name');
     const locs = boxes.filter(b => b.el.checked).map(b => b.id);
     if (role.value !== 'super_admin' && !locs.length) return toast('Choose at least one location');
-    const { error } = await sb.rpc('staff_attach', { p_email: email.value.trim(), p_name: name.value.trim(), p_role: role.value,
-      p_locations: locs, p_view_all: fAll.checked, p_sensitive: fSens.checked, p_export: fExp.checked });
+    const cm = await sb.from('locations').select('community_id').limit(1); const { error } = await sb.rpc('team_save', { p_email: email.value.trim(), p_name: name.value.trim(), p_level: role.value === 'super_admin' ? 'owner' : role.value, p_designation: '', p_state: null,
+      p_locations: locs, p_community: cm.data && cm.data[0] && cm.data[0].community_id, p_view_all: fAll.checked, p_sensitive: fSens.checked, p_export: fExp.checked });
     error ? toast(friendly(error)) : (toast('Staff saved'), reload());
   };
 
@@ -41,7 +41,7 @@ export async function render(main) {
         x.status === 'revoked' ? h('button', { class: 'btn sm bad', onclick: async () => { if (prompt('Delete ' + x.full_name + ' FOREVER?\nType DELETE to confirm') !== 'DELETE') return;
           const { error } = await sb.rpc('staff_purge', { p_user: x.user_id, p_confirm: 'DELETE' }); error ? toast(friendly(error)) : (toast('Deleted permanently'), reload()); } }, 'Delete permanently') : null))))),
     h('div', { class: 'card' }, h('h3', {}, 'Add or update staff'),
-      h('p', { class: 'muted' }, 'Step 1: create the person\'s login in Supabase → Authentication → Users. Step 2: enter the same email here. Typing an existing email updates that person.'),
+      h('p', { class: 'muted' }, 'If the person already has a login, they become active at once. If not, they are invited: share the invite from Team (Home → Office → My Team / Communities → Team) or create the login in Supabase → Authentication → Users (tick Auto Confirm User). Typing an existing email updates that person.'),
       h('label', {}, 'Email'), email, h('label', {}, 'Full name'), name, h('label', {}, 'Role'), role,
       h('label', {}, 'Locations they can work in'), ...boxes.map(b => chk(b.el, `${b.x.code} · ${b.x.city}`)),
       h('label', {}, 'Special permissions (leave off unless needed)'),

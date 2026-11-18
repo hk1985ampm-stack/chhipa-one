@@ -2,22 +2,22 @@ import { sb, h, hi, state, ROLE_LABEL, isStateOrSuper } from './core.js';
 import { lang, UR } from './i18n.js';
 import { logoImg, brandName, brandSub, brand } from './brand.js';
 
-const APP_VERSION = 'v21 · Letterheads, Dues & Custom Lists';
+const APP_VERSION = 'v24 · Team invites, photos & cards';
 const tile = (href, en, hindi, soon, badge) =>
   h(soon ? 'div' : 'a', { class: 'tile' + (soon ? ' soon' : ''), href: soon ? null : href },
     h('span', { class: 'en' }, en), h('span', { class: 'hi' }, lang.v === 'ur' ? (UR[en] || hindi) : hindi), soon ? h('span', { class: 'tag' }, 'Coming in Phase ' + soon) : null, badge ? h('span', { class: 'badge' }, String(badge)) : null);
 
 export async function render(main) {
-  let unread = 0, pend = 0;
+  let unread = 0, pend = 0, lev = 0;
   try {
     const r = await sb.from('notifications').select('id', { count: 'exact', head: true }).eq('is_read', false); unread = r.count || 0;
-    if (['super_admin', 'location_admin'].includes(state.profile.role)) { const q = await sb.from('families').select('id', { count: 'exact', head: true }).eq('status', 'pending'); pend = q.count || 0; }
+    if (['super_admin', 'location_admin'].includes(state.profile.role)) { const q = await sb.from('families').select('id', { count: 'exact', head: true }).eq('status', 'pending'); pend = q.count || 0; const le = await sb.from('life_events').select('id', { count: 'exact', head: true }).eq('status', 'pending'); lev = le.count || 0; }
   } catch {}
   const p = state.profile, sup = p.role === 'super_admin', appr = ['super_admin', 'location_admin'].includes(p.role);
   const SECTIONS = [
     ['families', ['👨‍👩‍👧 ', hi('Families', 'परिवार')], [
       tile('#registry', 'Family Registry', 'परिवार रजिस्टर'), p.read_only ? null : tile('#add', 'Add Family', 'परिवार जोड़ें'), p.read_only ? null : tile('#requests', 'Change Requests', 'बदलाव अनुरोध'),
-      tile('#events', 'Life Events', 'जीवन घटनाएँ'), tile('#notifications', 'Notifications', 'सूचनाएँ', false, unread),
+      tile('#events', 'Life Events', 'जीवन घटनाएँ', false, lev), tile('#notifications', 'Notifications', 'सूचनाएँ', false, unread),
       tile('#reports', 'Reports', 'रिपोर्ट'), tile('#reports/quality', 'Data Quality', 'डेटा जाँच'),
       appr ? tile('#registry/removed', 'Removed Entries', 'हटाई गई प्रविष्टियाँ') : null]],
     ['welfare', ['💚 ', hi('Welfare', 'कल्याण')], [isStateOrSuper() ? tile('#donations', 'Annual Donation', 'वार्षिक चंदा') : null, tile('#zakat', 'Zakat Calculator', 'ज़कात कैलकुलेटर')]],
@@ -29,7 +29,7 @@ export async function render(main) {
   let cur = sessionStorage.getItem('home_tab'); if (!SECTIONS.some(s => s[0] === cur)) cur = 'families';
   const body = h('div'), tabs = h('div', { class: 'chips' });
   const draw = () => {
-    tabs.replaceChildren(...SECTIONS.map(([k, t]) => h('button', { class: 'btn ' + (cur === k ? '' : 'alt'), onclick: () => { cur = k; sessionStorage.setItem('home_tab', k); draw(); } }, t)));
+    tabs.replaceChildren(...SECTIONS.map(([k, t]) => { const n = k === 'families' ? lev : k === 'office' ? pend : 0; return h('button', { class: 'btn tabb ' + (cur === k ? '' : 'alt'), onclick: () => { cur = k; sessionStorage.setItem('home_tab', k); draw(); } }, t, n ? h('span', { class: 'cbadge' }, String(n)) : null); }));
     body.replaceChildren(h('div', { class: 'grid' }, SECTIONS.find(s => s[0] === cur)[2].filter(Boolean)));
   };
   draw();

@@ -214,3 +214,5 @@ details.card>summary{cursor:pointer;font-weight:700;font-size:16px}
 .bar .backbtn{font-weight:800;background:#fff;color:#0f6b4f;border-color:#fff}.danger-zone{margin:28px 0 90px;padding:12px;border-top:2px dashed #e5b4b4;text-align:center}.danger-zone .btn{min-width:60%}
 @media (max-width:520px){header.bar{padding:8px 10px;gap:6px}header.bar .ttl{display:none}header.bar .role{display:none}header.bar button{padding:0 11px;min-height:42px;font-size:14px}header.bar .backbtn{font-size:15px}header.bar button:last-child{margin-left:auto}
 .igrid{grid-template-columns:1fr 1fr!important}.igrid .it{padding:8px 10px}}
+
+.tabb{position:relative}.cbadge{background:#d33;color:#fff;border-radius:11px;min-width:20px;height:20px;padding:0 6px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-left:6px}

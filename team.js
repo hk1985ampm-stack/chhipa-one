@@ -8,7 +8,7 @@ const DESIGNATIONS = ['President', 'Vice President', 'Secretary', 'Joint Secreta
 
 // Invite by WhatsApp / e-mail / copy: no automatic e-mail is needed, the person simply opens the app link and creates an account with the invited e-mail
 const appLink = () => location.origin + location.pathname;
-const inviteText = (name, email, role) => `Assalamu Alaikum ${name},\nYou are invited as ${role} on Chhipa One (CJBWS community app).\n1. Open: ${appLink()}\n2. Tap "Create account" and use this e-mail: ${email}\n3. You get your access automatically.`;
+const inviteText = (name, email, role) => `Assalamu Alaikum ${name},\nYou are invited as ${role} on Chhipa One (CJBWS community app).\n1. Open: ${appLink()}\n2. Sign in with this e-mail: ${email}\n   (first time and no password yet? tap "Create account", or ask the admin for your password)\n3. Your access is already set up.`;
 function shareBox(name, email, role, phone) {
   const txt = inviteText(name, email, role), ph = (phone || '').replace(/\D/g, '');
   return h('div', { class: 'card' }, h('h3', { style: 'margin-top:0' }, 'Send the invite to ' + name), h('pre', { class: 'muted s', style: 'white-space:pre-wrap;margin:0 0 8px' }, txt),
@@ -50,7 +50,7 @@ export async function teamTab(c, locs) {
     const sync = () => { stBox.hidden = lvl.value !== 'state_admin'; locBox.hidden = !['location_admin', 'agent'].includes(lvl.value); }; lvl.addEventListener('change', sync); sync();
     const chk = (el, t) => h('label', { class: 'chk' }, el, t), err = h('p', { class: 'err' });
     form.replaceChildren(h('div', { class: 'card' }, h('h3', {}, p ? 'Change role · ' + p.full_name : 'Add team member'),
-      p ? null : h('p', { class: 'muted s' }, 'If this email already has a login the person is added at once. Otherwise you can send the invite by WhatsApp, e-mail or copy: they open the app, tap “Create account” with this e-mail, and get this role automatically.'),
+      p ? null : h('p', { class: 'muted s' }, 'Tip: the person needs a login first. Easiest: Supabase → Authentication → Users → Add user (tick Auto Confirm User), then save here and send them the e-mail and password on WhatsApp. If sign-ups are switched on in Supabase, they can also create their own account. If this email already has a login the person is added at once. Otherwise you can send the invite by WhatsApp, e-mail or copy: they open the app, tap “Create account” with this e-mail, and get this role automatically.'),
       h('label', {}, 'Email *'), email, h('label', {}, 'Full name *'), name, h('label', {}, 'Role *'), lvl, h('label', {}, 'Designation (office-bearer title)'), des, dl, h('div', {}, h('label', {}, p && p.user_id ? 'Phone (printed on cards)' : 'WhatsApp / phone (for sending the invite)'), phone), stBox, locBox,
       h('label', {}, 'Special permissions (leave off unless needed)'), chk(fAll, 'Can VIEW all families (read only)'), chk(fSens, 'Can view sensitive data'), chk(fExp, 'Can export to Excel'), err,
       h('div', { class: 'actions' }, h('button', { class: 'btn alt', onclick: () => form.replaceChildren() }, 'Cancel'), h('button', { class: 'btn', onclick: async ev => {
