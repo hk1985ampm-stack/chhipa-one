@@ -1,26 +1,36 @@
 // Agent / Admin / office-bearer ID card in the same framed print format (header, office bearers, card, footer)
 import { sb, h, ROLE_LABEL } from './core.js';
-import { THEMES, getCfg } from './letterhead.js';
+import { getCfg } from './letterhead.js';
 import { brand, logoUrl } from './brand.js';
-import { CW, CH, dataUrl } from './idcard.js';
+import { CW, CH, dataUrl, cardShell, detailRows, measurer } from './idcard.js';
+import { prep, today } from './letterhead.js';
 import { qrPng, load } from './pdf.js';
 import { officersFor, allOfficers } from './officers.js';
 import { cardPageView } from './cardframe.js';
 
-function staffSpec(c, m, logo, qr) {
-  const th = THEMES[getCfg().theme] || THEMES.emerald, S = [], B = brand.data || {};
-  const R = (x, y, w, h2, o = {}) => S.push({ k: 'r', x, y, w, h: h2, ...o }), T = (x, y, s, o = {}) => S.push({ k: 't', x, y, s: String(s), size: o.size || 7, bold: !!o.bold, italic: !!o.italic, color: o.color || [20, 20, 20], align: o.align || 'left' });
-  R(0, 0, CW, CH, { fill: th.cr }); R(0, 0, CW, 12, { fill: th.dg }); R(0, 12, CW, .7, { fill: th.go });
-  if (logo) { S.push({ k: 'c', x: 7.5, y: 6, r: 4.6, fill: [255, 255, 255], stroke: th.go, lw: .3 }); S.push({ k: 'i', x: 3.4, y: 1.9, w: 8.2, h: 8.2, src: logo }); }
-  T(logo ? 51 : CW / 2, 5.6, m.fit(B.header_line1 || B.name || 'CHHIPA JAMAT BARAR WELFARE SOCIETY', 6.5, true, 70), { size: 6.5, bold: true, color: [255, 255, 255], align: 'center' });
-  T(logo ? 51 : CW / 2, 9.6, c.level_label, { size: 6, bold: true, color: [255, 235, 160], align: 'center' });
-  const lines = [['Name', c.name, 10], ['Designation', c.designation || c.level_label, 7.5], ['ID No.', c.code, 9], ['Phone', c.phone || '—', 8.5], ['Area', c.area || '—', 7.5]];
-  lines.forEach(([l, v, sz], i) => { const y = 18 + i * 7.4; T(5, y, l, { size: 5.5, color: [110, 110, 110] }); T(5, y + 3.6, m.fit(v, sz, true, 52), { size: sz, bold: true }); });
-  R(61, 17, 22, 22, { fill: [255, 255, 255], stroke: th.go, lw: .3 }); S.push({ k: 'i', x: 62, y: 18, w: 20, h: 20, src: qr });
-  T(72, 43, 'Scan to verify', { size: 5, color: [110, 110, 110], align: 'center' });
-  R(0, CH - 4.5, CW, 4.5, { fill: th.dg }); T(CW / 2, CH - 1.5, m.fit(c.status || 'Authorised representative', 5.5, true, 80), { size: 5.5, bold: true, color: [255, 255, 255], align: 'center' });
-  R(.25, .25, CW - .5, CH - .5, { stroke: th.go, lw: .5 });
+const initials = n => String(n || '').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+export function staffSpec(c, m, logo, qr) {
+  const { S, T, R, th } = cardShell({ logo, photo: c.photo, initials: initials(c.name), title: String(c.level_label || 'AUTHORISED REPRESENTATIVE').toUpperCase(), code: c.code, footer: 'Authorised representative of the society' }, m.split);
+  const nl = m.split(c.name, 8.6, true, 50).length > 1 ? m.split(c.name, 7.4, true, 50).slice(0, 2) : m.split(c.name, 8.8, true, 50);
+  nl.forEach((ln, i) => T(32, 19.8 + i * 3.7, ln, { size: nl.length > 1 ? 7.4 : 8.8, bold: true, color: th.dg }));
+  const ny = 19.8 + (nl.length - 1) * 3.7; R(32, ny + 1.5, 50, .35, { fill: th.go });
+  detailRows(T, m.split, [['DESIGNATION', c.designation || c.level_label], ['PHONE', c.phone], ['AREA', c.area], ['STATE', c.state]], 32, ny + 6, 4.4, 44, 20, th);
+  R(63.6, 28.2, 18.8, 18.8, { fill: [255, 255, 255], stroke: th.go, lw: .4, round: 1.4 }); S.push({ k: 'i', x: 64.8, y: 29.4, w: 16.4, h: 16.4, src: qr });
+  T(73, 49.4, 'SCAN TO VERIFY', { size: 3.6, bold: true, color: th.dg, align: 'center' });
   return S;
+}
+
+// All staff cards on A4 sheets, 2 × 5 per page, with the society letterhead
+export async function bulkStaffPdf(list, mode = 'save') {
+  await load('qrcode.min.js'); const m = await measurer(), L = await prep(getCfg()), { headFull, footers } = await import('./letterhead.js'), { drawPdf } = await import('./idcard.js');
+  const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+  let logo = null; const lg = logoUrl((brand.data || {}).logo_path); if (lg) { try { logo = await dataUrl(lg); } catch {} }
+  let y0 = headFull(doc, L, 'Staff ID Cards', list.length + ' cards', today());
+  list.forEach((c, i) => { const pg = Math.floor(i / 10), k = i % 10; if (k === 0 && pg > 0) { doc.addPage(); y0 = headFull(doc, L, 'Staff ID Cards', '', today()); }
+    const col = k % 2, row = Math.floor(k / 2), x = 14 + col * 92, y = y0 + 4 + row * 46.5; const cc = { ...c, level_label: c.designation || ROLE_LABEL[c.level] || c.level, area: (c.locations || []).join(', ') };
+    drawPdf(doc, staffSpec(cc, m, logo, qrPng('CJBWS|STAFF|' + (c.code || '') + '|' + c.name)), x, y); });
+  footers(doc, L);
+  if (mode === 'view') return doc.output('bloburl'); doc.save('staff-cards.pdf');
 }
 
 export async function render(main, id) {

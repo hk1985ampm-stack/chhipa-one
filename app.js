@@ -37,7 +37,9 @@ const ROUTES = {
   reglinks: () => import('./reglinks.js'),
   idcard: () => import('./idcard.js'),
   staffcard: () => import('./staffcard.js'),
-  myteam: () => import('./myteam.js')
+  myteam: () => import('./myteam.js'),
+  profile: () => import('./profile.js'),
+  inbox: () => import('./inbox.js')
 };
 const root = document.getElementById('app');
 
@@ -54,32 +56,8 @@ function armIdle() {
 }
 ['click', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, () => state.profile && armIdle(), { passive: true }));
 
-// ---- login
-function loginView() {
-  const email = h('input', { type: 'email', autocomplete: 'username', placeholder: 'name@example.com' });
-  const pass = h('input', { type: 'password', autocomplete: 'current-password' });
-  const err = h('div', { class: 'err' });
-  const btn = h('button', { class: 'btn', style: 'width:100%;margin-top:16px' }, 'Sign in · लॉगिन');
-  const go = async e => {
-    e.preventDefault(); err.textContent = ''; btn.disabled = true;
-    const { error } = await sb.auth.signInWithPassword({ email: email.value.trim(), password: pass.value });
-    btn.disabled = false;
-    if (error) err.textContent = /rate|too many/i.test(error.message)
-      ? 'Too many attempts. Please wait a few minutes.' : 'Email or password is incorrect. New here (invited, no password yet)? Tap “Create account” below instead of Sign in.';
-  };
-  const signup = async () => {
-    err.textContent = '';
-    if (!email.value.trim() || pass.value.length < 8) return (err.textContent = 'Enter the invited email and a password of at least 8 characters.');
-    btn.disabled = true; const { data, error } = await sb.auth.signUp({ email: email.value.trim(), password: pass.value }); btn.disabled = false;
-    if (error) err.textContent = /already registered/i.test(error.message) ? 'This e-mail already has a login. Please use Sign in with your password.' : /signups? not allowed/i.test(error.message) ? 'Self sign-up is switched off. Please ask your admin to create your login (or switch sign-ups on), then sign in here.' : error.message; else if (!data.session) { err.className = 'ok'; err.textContent = 'Account created. Please confirm the email we sent you, then sign in.'; }
-  };
-  root.replaceChildren(h('div', { class: 'login' },
-    h('div', { class: 'hero-login' }, logoImg(84), h('h1', {}, 'Chhipa One'), h('p', {}, brandName()), brandSub() ? h('small', {}, brandSub().toUpperCase()) : null),
-    h('form', { class: 'card', onsubmit: go },
-      h('label', {}, hi('Email', 'ईमेल')), email,
-      h('label', {}, hi('Password', 'पासवर्ड')), pass, err, btn,
-      h('p', { style: 'text-align:center;margin:14px 0 0' }, h('button', { type: 'button', class: 'btn alt', style: 'width:100%', onclick: signup }, 'First time? Create account (invited staff)')))));
-}
+// ---- login (see auth.js)
+const loginView = async () => (await import('./auth.js')).showLogin(root);
 
 function blockedView(msg) {
   root.replaceChildren(h('div', { class: 'login' }, h('h1', {}, 'Chhipa One'),
@@ -102,6 +80,7 @@ async function render() {
       route ? h('button', { onclick: () => (location.hash = '') }, '🏠 Home') : logoImg(40),
       route ? h('button', { class: 'backbtn', onclick: () => (history.length > 1 ? history.back() : (location.hash = '')) }, '← Back') : null,
       h('div', { class: 'ttl' }, h('h1', {}, 'Chhipa One'), brandSub() ? h('small', {}, brandSub().toUpperCase()) : null),
+      h('a', { class: 'avatar', href: '#profile', title: 'My profile' }, state.profile.photo ? h('img', { src: state.profile.photo, alt: '' }) : (state.profile.full_name || '?').slice(0, 1).toUpperCase()),
       h('span', { class: 'role' }, ROLE_LABEL[state.profile.role] + (state.profile.read_only ? ' · View only' : '')),
       h('button', { onclick: () => { setLang(nextLang()); render(); }, title: 'Language' }, LANGS.find(l => l[0] === lang.v)[1]),
       h('button', { onclick: () => sb.auth.signOut() }, hi('Sign out', 'साइन आउट'))),
@@ -134,8 +113,10 @@ async function boot(session) {
   if (error && isNetErr(error)) { data = await kvGet('profile_' + session.user.id); error = data ? null : error; }
   else if (data) kvSet('profile_' + session.user.id, data);
   if (!error && !data && navigator.onLine) { const c = await sb.rpc('invite_claim'); if (c.data && c.data.claimed) { const r = await sb.from('profiles').select('*').eq('user_id', session.user.id).maybeSingle(); data = r.data; } }
-  if (error || !data) return blockedView('Your login is not yet activated. Please ask the Super Admin to add you as staff.');
+  if (!error && !data && navigator.onLine) return (await import('./auth.js')).showAccessRequest(root, session);
+  if (error || !data) return blockedView('Could not load your account. Please check your internet and try again.');
   if (data.status !== 'active') return blockedView('Your account is ' + data.status + '. Please contact the Super Admin.');
+  if (data.must_change_pw) return (await import('./auth.js')).showChangePassword(root, () => boot(session));
   state.profile = data; armIdle(); watchSelf(session.user.id, data); await loadOptions(); loadCustomFields(); loadBrand().then(() => { if (!location.hash || location.hash === '#') render(); }); render(); initOutbox(); prefetch();
 }
 

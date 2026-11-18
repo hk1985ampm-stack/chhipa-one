@@ -1,5 +1,7 @@
 // Community Team: owners, state admins, location admins and agents of one community. Changes show instantly (Supabase Realtime + refresh).
 import { sb, h, hi, toast, friendly, state, isStateOrSuper } from './core.js';
+import { resetFor } from './inbox.js';
+import { pickStaffPhoto } from './profile.js';
 
 export const LEVELS = [['owner', 'Owner (Super Admin)', 'मालिक'], ['state_admin', 'State Admin', 'राज्य एडमिन'], ['location_admin', 'Location Admin', 'लोकेशन एडमिन'], ['agent', 'Agent', 'एजेंट']];
 const mayLevel = v => state.profile.role === 'super_admin' || (isStateOrSuper() ? ['location_admin', 'agent'].includes(v) : v === 'agent');
@@ -17,7 +19,7 @@ function shareBox(name, email, role, phone) {
       h('button', { class: 'btn alt', onclick: () => { navigator.clipboard && navigator.clipboard.writeText(txt); toast('Invite text copied'); } }, 'Copy')));
 }
 export async function teamTab(c, locs) {
-  const wrap = h('div'), list = h('div'), form = h('div');
+  const wrap = h('div'), list = h('div'), form = h('div'), pwbox = h('div');
   const states = [...new Set(locs.map(l => l.state).filter(Boolean))];
   let rows = [], chan;
   const load = async () => {
@@ -28,12 +30,14 @@ export async function teamTab(c, locs) {
   const act = async (fn, msg) => { const { error } = await fn(); error ? toast(friendly(error)) : toast(msg); load(); };
   const draw = () => list.replaceChildren(h('div', { class: 'card' }, h('div', { class: 'muted s' }, rows.length + ' people · updates live'),
     ...rows.map(p => h('div', { class: 'team-row' },
-      h('div', { class: 'tr-main' }, h('b', {}, p.full_name), ' ', h('span', { class: 'pill ' + (p.invited ? 'draft' : p.status === 'active' ? 'approved' : p.status === 'suspended' ? 'pending' : 'rejected') }, p.invited ? 'invited' : p.status),
+      h('div', { class: 'tr-main' }, h('b', {}, p.full_name), ' ', h('span', { class: 'pill ' + (p.invited ? 'draft' : p.status === 'active' ? 'approved' : p.status === 'suspended' ? 'pending' : 'rejected') }, p.invited ? 'invited' : p.status), !p.invited && !p.has_photo ? h('span', { class: 'pill draft', title: 'No photo yet' }, 'no photo') : null,
         h('div', { class: 'muted s' }, [p.email, p.designation, p.admin_code ? 'ID ' + p.admin_code : null, p.phone ? 'Ph ' + p.phone : null].filter(Boolean).join(' · ')),
         h('div', { class: 'muted s' }, [LV[p.level], p.level === 'state_admin' ? p.scope_state : null, p.level === 'owner' ? 'all locations' : (p.location_codes || []).join(', ') || null].filter(Boolean).join(' · '))),
       h('div', { class: 'chips' },
         p.invited ? h('button', { class: 'btn sm', onclick: () => { form.replaceChildren(shareBox(p.full_name, p.email, LV[p.level], '')); form.scrollIntoView({ behavior: 'smooth' }); } }, '📤 Send invite') : null,
         h('button', { class: 'btn alt sm', onclick: () => edit(p) }, '✏️ Role'),
+        !p.invited && p.can_reset ? h('button', { class: 'btn alt sm', onclick: () => resetFor(p.user_id, p.full_name, p.email, pwbox, load) }, '🔑 Reset password') : null,
+        !p.invited && p.user_id ? h('button', { class: 'btn alt sm', onclick: () => pickStaffPhoto(p.user_id, load) }, '📷') : null,
         !p.invited && p.status === 'active' ? h('a', { class: 'btn alt sm', href: '#staffcard/' + p.user_id }, '🪪 ID Card') : null,
         !p.invited && p.user_id !== state.profile.user_id ? h('button', { class: 'btn alt sm', onclick: () => act(() => sb.rpc('staff_set_status', { p_user: p.user_id, p_status: p.status === 'active' ? 'suspended' : 'active' }), 'Updated') }, p.status === 'active' ? 'Suspend' : 'Activate') : null,
         p.invited ? h('button', { class: 'btn alt bad sm', onclick: () => confirm('Cancel invite for ' + p.email + '?') && act(() => sb.rpc('team_cancel_invite', { p_email: p.email }), 'Invite cancelled') }, 'Cancel invite')
@@ -61,7 +65,7 @@ export async function teamTab(c, locs) {
         load(); if (data.status === 'invited') { toast('Invite saved — now send it'); form.replaceChildren(shareBox(name.value.trim(), email.value.trim().toLowerCase(), LV[lvl.value], phone.value)); } else { form.replaceChildren(); toast('Saved'); } } }, 'Save'))));
     form.scrollIntoView({ behavior: 'smooth' });
   };
-  wrap.append(h('div', { class: 'rowhead' }, h('h3', { style: 'margin:0' }, hi('Team', 'टीम')), h('button', { class: 'btn sm', onclick: () => edit(null) }, '+ Add member')), form, list);
+  wrap.append(h('div', { class: 'rowhead' }, h('h3', { style: 'margin:0' }, hi('Team', 'टीम')), h('div', { class: 'chips' }, h('button', { class: 'btn alt sm', onclick: async () => { const { data, error } = await sb.rpc('staff_cards_bulk', { p_location: null }); if (error) return toast(friendly(error)); const m = await import('./staffcard.js'); m.bulkStaffPdf(data || [], 'save'); } }, '🪪 Print all staff cards'), h('button', { class: 'btn sm', onclick: () => edit(null) }, '+ Add member'))), pwbox, form, list);
   load();
   try { chan = sb.channel('team-' + c.id).on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, load).on('postgres_changes', { event: '*', schema: 'public', table: 'staff_invites' }, load).subscribe(); } catch {}
   const stop = () => { try { chan && sb.removeChannel(chan); } catch {} removeEventListener('hashchange', stop); };

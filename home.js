@@ -2,16 +2,17 @@ import { sb, h, hi, state, ROLE_LABEL, isStateOrSuper } from './core.js';
 import { lang, UR } from './i18n.js';
 import { logoImg, brandName, brandSub, brand } from './brand.js';
 
-const APP_VERSION = 'v24 · Team invites, photos & cards';
+const APP_VERSION = 'v26 · Photos, passwords, requests & new look';
 const tile = (href, en, hindi, soon, badge) =>
   h(soon ? 'div' : 'a', { class: 'tile' + (soon ? ' soon' : ''), href: soon ? null : href },
     h('span', { class: 'en' }, en), h('span', { class: 'hi' }, lang.v === 'ur' ? (UR[en] || hindi) : hindi), soon ? h('span', { class: 'tag' }, 'Coming in Phase ' + soon) : null, badge ? h('span', { class: 'badge' }, String(badge)) : null);
 
 export async function render(main) {
-  let unread = 0, pend = 0, lev = 0;
+  let unread = 0, pend = 0, lev = 0, inb = 0;
   try {
     const r = await sb.from('notifications').select('id', { count: 'exact', head: true }).eq('is_read', false); unread = r.count || 0;
     if (['super_admin', 'location_admin'].includes(state.profile.role)) { const q = await sb.from('families').select('id', { count: 'exact', head: true }).eq('status', 'pending'); pend = q.count || 0; const le = await sb.from('life_events').select('id', { count: 'exact', head: true }).eq('status', 'pending'); lev = le.count || 0; }
+    if (['super_admin', 'location_admin'].includes(state.profile.role)) { const hc = await sb.rpc('hub_counts'); const pc = await sb.from('members').select('id', { count: 'exact', head: true }).not('photo_pending', 'is', null); inb = ((hc.data || {}).pwd || 0) + ((hc.data || {}).access || 0) + (pc.count || 0); }
   } catch {}
   const p = state.profile, sup = p.role === 'super_admin', appr = ['super_admin', 'location_admin'].includes(p.role);
   const SECTIONS = [
@@ -19,13 +20,14 @@ export async function render(main) {
       tile('#registry', 'Family Registry', 'परिवार रजिस्टर'), p.read_only ? null : tile('#add', 'Add Family', 'परिवार जोड़ें'), p.read_only ? null : tile('#requests', 'Change Requests', 'बदलाव अनुरोध'),
       tile('#events', 'Life Events', 'जीवन घटनाएँ', false, lev), tile('#notifications', 'Notifications', 'सूचनाएँ', false, unread),
       tile('#reports', 'Reports', 'रिपोर्ट'), tile('#reports/quality', 'Data Quality', 'डेटा जाँच'),
+      appr ? tile('#inbox', 'Requests Inbox', 'अनुरोध इनबॉक्स', false, inb) : null,
       appr ? tile('#registry/removed', 'Removed Entries', 'हटाई गई प्रविष्टियाँ') : null]],
     ['welfare', ['💚 ', hi('Welfare', 'कल्याण')], [isStateOrSuper() ? tile('#donations', 'Annual Donation', 'वार्षिक चंदा') : null, tile('#zakat', 'Zakat Calculator', 'ज़कात कैलकुलेटर')]],
     ['community', ['🤝 ', hi('Community', 'समुदाय')], [tile('#announce', 'Announcements', 'घोषणाएँ'), tile('#cevents', 'Events', 'कार्यक्रम'), tile('#meetings', 'Meetings', 'बैठक'), tile('#sevaks', 'Sevaks', 'सेवक')]],
     ...(appr ? [['office', ['🏢 ', hi('Office', 'कार्यालय')], [
       tile('#registry/pending', 'Pending Approvals', 'लंबित स्वीकृति', false, pend),
       sup ? tile('#communities', 'Communities', 'समुदाय') : null, sup ? tile('#staff', 'Staff & Agents', 'स्टाफ / एजेंट') : tile('#myteam', 'My Team · assign', 'मेरी टीम'),
-      tile('#activity', 'Agent Activity', 'एजेंट गतिविधि'), tile('#scan', 'Scan QR', 'क्यू आर स्कैन'), tile('#reglinks', 'Registration Links', 'पंजीकरण लिंक'), tile('#reminders', 'Birthdays & WhatsApp', 'रिमाइंडर'), (sup || p.can_export || ['location_admin'].includes(p.role)) ? tile('#print', 'Print Center', 'प्रिंट सेंटर') : null, tile('#excel', 'Excel Import / Export', 'एक्सेल'), tile('#tools', 'Duplicates & Bulk Edit', 'डुप्लिकेट / बल्क एडिट'), sup ? tile('#lists', 'Dropdown Lists', 'ड्रॉपडाउन सूची') : null, sup ? tile('#backup', 'Backup', 'बैकअप') : null, sup ? tile('#audit', 'Audit Log', 'ऑडिट लॉग') : null]]] : [])];
+      tile('#profile', 'My Profile & Photo', 'मेरी प्रोफ़ाइल'), tile('#activity', 'Agent Activity', 'एजेंट गतिविधि'), tile('#scan', 'Scan QR', 'क्यू आर स्कैन'), tile('#reglinks', 'Registration Links', 'पंजीकरण लिंक'), tile('#reminders', 'Birthdays & WhatsApp', 'रिमाइंडर'), (sup || p.can_export || ['location_admin'].includes(p.role)) ? tile('#print', 'Print Center', 'प्रिंट सेंटर') : null, tile('#excel', 'Excel Import / Export', 'एक्सेल'), tile('#tools', 'Duplicates & Bulk Edit', 'डुप्लिकेट / बल्क एडिट'), sup ? tile('#lists', 'Dropdown Lists', 'ड्रॉपडाउन सूची') : null, sup ? tile('#backup', 'Backup', 'बैकअप') : null, sup ? tile('#audit', 'Audit Log', 'ऑडिट लॉग') : null]]] : [])];
   let cur = sessionStorage.getItem('home_tab'); if (!SECTIONS.some(s => s[0] === cur)) cur = 'families';
   const body = h('div'), tabs = h('div', { class: 'chips' });
   const draw = () => {
@@ -44,6 +46,7 @@ export async function render(main) {
   main.append(h('div', { class: 'hero' }, logoImg(64), h('div', {}, h('b', {}, brandName()), brandSub() ? h('small', {}, brandSub()) : null, h('div', { class: 'gold' }, (brand.data && brand.data.estd ? 'ESTD ' + brand.data.estd + ' · ' : '') + (ROLE_LABEL[p.role] || '').toUpperCase()))),
     h('h2', {}, hi('Welcome', 'स्वागत है'), ', ' + p.full_name),
     h('div', { class: 'card' }, h('input', { type: 'search', placeholder: 'Search name, ID, mobile… · खोजें', onfocus: () => (location.hash = 'registry') })),
+    p.photo ? [] : h('a', { href: '#profile', class: 'card photo-nag' }, '📷 Please add your photo — it is printed on your ID card. Tap here.'),
     ann, sup ? bk : [],
     SECTIONS.length > 1 ? tabs : [], body,
     h('p', { class: 'muted', style: 'text-align:center;font-size:12px;margin-top:18px' }, 'Chhipa One · ' + APP_VERSION));

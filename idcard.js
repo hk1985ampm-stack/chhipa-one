@@ -13,31 +13,52 @@ const rgb = c => `rgb(${c.join(',')})`;
 export const dataUrl = async u => { const r = await fetch(u); const b = await r.blob(); return new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.readAsDataURL(b); }); };
 const mobOf = m => { const c = m && m.member_contacts; return (Array.isArray(c) ? c[0] : c)?.mobile || ''; };
 
+const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+const one = (split, s, size, bold, w) => { const l = split(String(s || '—'), size, bold, w); return l.length > 1 ? l[0].replace(/\s+\S*$/, '').slice(0, -1) + '…' : l[0] || '—'; };
+
+// Elegant card shell shared by Member, Staff and Agent cards: gradient header, gold rule, framed photo, code pill, themed footer.
+// p = { logo, photo, initials, title, code, footer }; returns { S, T, th } so the caller adds the details.
+export function cardShell(p, split) {
+  const th = THEMES[getCfg().theme] || THEMES.emerald, B = brand.data || {}, S = [], T = (x, y, s, o = {}) => S.push({ k: 't', x, y, s, size: o.size || 7, bold: !!o.bold, italic: !!o.italic, color: o.color || INK, align: o.align || 'left' });
+  const R = (x, y, w, h2, o = {}) => S.push({ k: 'r', x, y, w, h: h2, ...o });
+  R(0, 0, CW, CH, { fill: th.cr });
+  S.push({ k: 'c', x: 72, y: 46, r: 30, fill: mix(th.cr, th.lt, .09) }); S.push({ k: 'c', x: 72, y: 46, r: 19, fill: mix(th.cr, th.lt, .14) });   // soft watermark rings
+  const N = 28; for (let i = 0; i < N; i++) R(CW * i / N, 0, CW / N + .25, 13, { fill: mix(th.dg, th.lt, i / (N - 1) * .85) });
+  R(0, 13, CW, .8, { fill: th.go }); R(0, 13.8, CW, .35, { fill: [255, 255, 255] });
+  R(0, 14.2, 2.2, CH - 14.2, { fill: th.go });
+  const cx = p.logo ? 50 : CW / 2;
+  if (p.logo) { S.push({ k: 'c', x: 8.6, y: 6.6, r: 5.2, fill: th.go }); S.push({ k: 'c', x: 8.6, y: 6.6, r: 4.6, fill: [255, 255, 255] }); S.push({ k: 'i', x: 4.5, y: 2.5, w: 8.2, h: 8.2, src: p.logo }); }
+  const org = split(B.header_line1 || B.name || 'CHHIPA JAMAT BARAR WELFARE SOCIETY', 6.6, true, p.logo ? 64 : 76).slice(0, 2);
+  org.forEach((ln, i) => T(cx, (org.length > 1 ? 4.4 : 5.4) + i * 3, ln, { size: 6.6, bold: true, color: [255, 255, 255], align: 'center' }));
+  T(cx, 10.6, p.title, { size: 5, bold: true, color: mix(th.go, [255, 255, 255], .55), align: 'center' });
+  // framed photo
+  R(5.2, 16.6, 23.6, 28.6, { fill: [255, 255, 255], stroke: th.go, lw: .5, round: 1 });
+  R(6.3, 17.7, 21.4, 26.4, { fill: mix(th.cr, th.lt, .2) });
+  if (p.photo) S.push({ k: 'i', x: 6.3, y: 17.7, w: 21.4, h: 26.4, src: p.photo }); else T(17, 33.6, p.initials || '', { size: 14, bold: true, color: th.dg, align: 'center' });
+  R(5.2, 46.2, 23.6, 4.6, { fill: th.dg, round: 2.3 }); T(17, 49.4, p.code || '—', { size: 6.4, bold: true, color: [255, 255, 255], align: 'center' });
+  // footer band
+  R(0, 51.4, CW, 2.6, { fill: th.dg }); R(0, 51.2, CW, .3, { fill: th.go });
+  if (p.footer) T(CW / 2 + 1, 53.3, p.footer, { size: 3.9, color: [225, 240, 228], align: 'center' });
+  R(.25, .25, CW - .5, CH - .5, { stroke: th.go, lw: .5 });
+  return { S, T, R, th };
+}
+// label + value rows (label grey, value bold) down the details column
+export function detailRows(T, split, rows, x0, y0, step, vx, vw, th) {
+  rows.filter(r => r[1]).forEach((r, i) => { const y = y0 + i * step; T(x0, y, r[0], { size: 4.6, bold: true, color: th.dg }); T(vx, y, one(split, r[1], 6.3, true, vw), { size: 6.3, bold: true }); });
+}
+
 // split(text, size, bold, maxW) -> lines  (measured with jsPDF so screen and PDF break lines identically)
 export function idSpec(p, split) {
-  const th = THEMES[getCfg().theme] || THEMES.emerald, DG = th.dg, GO = th.go, CR = th.cr, LT = th.lt;
-  const B = brand.data || {}, S = [], T = (x, y, s, o = {}) => S.push({ k: 't', x, y, s, size: o.size || 7, bold: !!o.bold, italic: !!o.italic, color: o.color || INK, align: o.align || 'left' });
-  S.push({ k: 'r', x: 0, y: 0, w: CW, h: CH, fill: CR });
-  S.push({ k: 'r', x: 0, y: 0, w: CW, h: 12, fill: DG });
-  S.push({ k: 'r', x: 0, y: 12, w: CW, h: .7, fill: GO }); S.push({ k: 'r', x: 0, y: 12.7, w: CW, h: .5, fill: LT });
-  const cx = p.logo ? 49 : CW / 2;
-  if (p.logo) { S.push({ k: 'c', x: 8, y: 6, r: 4.6, fill: [255, 255, 255] }); S.push({ k: 'i', x: 4.2, y: 2.2, w: 7.6, h: 7.6, src: p.logo }); }
-  const org = split(B.header_line1 || B.name || 'CHHIPA JAMAT BARAR WELFARE SOCIETY', 6.5, true, p.logo ? 66 : 76).slice(0, 2);
-  org.forEach((ln, i) => T(cx, (org.length > 1 ? 4.2 : 5.2) + i * 2.9, ln, { size: 6.5, bold: true, color: [255, 255, 255], align: 'center' }));
-  T(cx, 10.2, 'MEMBER ID CARD', { size: 5.2, color: [205, 232, 210], align: 'center' });
-  S.push({ k: 'r', x: 3, y: 15.5, w: 22, h: 27, fill: [220, 240, 230], stroke: GO, lw: .35 });
-  if (p.photo) S.push({ k: 'i', x: 3, y: 15.5, w: 22, h: 27, src: p.photo });
-  else T(14, 31.2, p.initials, { size: 13, bold: true, color: DG, align: 'center' });
-  split(p.name, 8.5, true, 54).slice(0, 2).forEach((ln, i) => T(28, 19.6 + i * 3.6, ln, { size: 8.5, bold: true }));
-  T(28, 28, 'Member ID', { size: 5.2, color: GREY }); T(28, 31.4, p.mcode || '—', { size: 8, bold: true });
-  T(28, 35.4, 'Family ID', { size: 5.2, color: GREY }); T(28, 38.8, p.fcode || '—', { size: 8, bold: true });
+  const sh = cardShell({ logo: p.logo, photo: p.photo, initials: p.initials, title: 'MEMBER IDENTITY CARD', code: p.mcode, footer: (p.city ? p.city + '  ·  ' : '') + 'Valid while membership is active' }, split), { S, T, R, th } = sh;
+  const nm = split(p.name, 8.6, true, 50);
+  const two = nm.length > 1, nl = two ? split(p.name, 7.4, true, 50).slice(0, 2) : nm;
+  nl.forEach((ln, i) => T(32, 19.8 + i * 3.7, ln, { size: two ? 7.4 : 8.8, bold: true, color: th.dg }));
+  const ny = 19.8 + (nl.length - 1) * 3.7;
+  R(32, ny + 1.5, 50, .35, { fill: th.go });
   const rl = p.relToHead === 'Head of Family' ? 'Head of Family' : p.relToHead ? p.relToHead + ' of Head' : p.rel;
-  T(3, 45.6, 'Relation to Head: ' + rl, { size: 5.6, bold: true, color: DG });
-  if (p.headName) T(3, 48.7, 'Family Head: ' + p.headName, { size: 5.8, bold: true });
-  T(3, 51.6, [p.gender, p.age, p.blood && 'Blood ' + p.blood, p.city].filter(Boolean).join(' · ') + (p.mobile ? '  ·  ' + p.mobile : ''), { size: 5.4, color: GREY });
-  S.push({ k: 'r', x: 62.6, y: 30, w: 20.4, h: 20.4, fill: [255, 255, 255], stroke: GO, lw: .35, round: 1.2 });
-  S.push({ k: 'i', x: 63.8, y: 31.2, w: 18, h: 18, src: p.qr });
-  S.push({ k: 'r', x: .25, y: .25, w: CW - .5, h: CH - .5, stroke: GO, lw: .5 });
+  detailRows(T, split, [['FAMILY ID', p.fcode], ['RELATION', rl], ['HEAD', p.headName], ['SEX · AGE', [p.gender, p.age].filter(Boolean).join(' · ')], ['BLOOD', p.blood], ['MOBILE', p.mobile]], 32, ny + 6, 3.9, 44, 20, th);
+  R(63.6, 28.2, 18.8, 18.8, { fill: [255, 255, 255], stroke: th.go, lw: .4, round: 1.4 }); S.push({ k: 'i', x: 64.8, y: 29.4, w: 16.4, h: 16.4, src: p.qr });
+  T(73, 49.4, 'SCAN TO VERIFY', { size: 3.6, bold: true, color: th.dg, align: 'center' });
   return S;
 }
 
