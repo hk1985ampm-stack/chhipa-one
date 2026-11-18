@@ -1,4 +1,4 @@
-import { sb, ageText } from './core.js';
+import { sb, ageText, logAct } from './core.js';
 import { REL_LABELS } from './options.js';
 import { photoUrl } from './photo.js';
 import { brand, logoUrl } from './brand.js';
@@ -81,5 +81,6 @@ export async function familyCardPdf(fam, rows, ageOf = ageText, dues = null) {
   const m = await measurer(), P = await famParts(fam, rows, dues), pages = famSpec(fam, rows, P, m, ageOf);
   const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   pages.forEach((S, i) => { if (i) doc.addPage(); drawPdf(doc, S); });
+  logAct('DOWNLOAD', 'Family card ' + (fam.family_code || ''));
   doc.save('FamilyCard_' + safe(P.hm && P.hm.full_name) + '.pdf');
 }

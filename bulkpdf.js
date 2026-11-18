@@ -16,7 +16,7 @@ const today = () => new Date().toLocaleDateString('en-IN');
 export async function fetchFamilies(locationId, onProgress) {
   const out = [];
   for (let from = 0; ; from += 150) {
-    let q = sb.from('families').select('id,family_code,address,gotra,family_type,taluka,pincode,phone,locations(code,city), family_memberships(relation,is_active, members(id,member_code,full_name,gender,dob,birth_year_est,status,education,occupation,marital_status,photo_path,removed_at, member_contacts(mobile)))')
+    let q = sb.from('families').select('id,family_code,address,gotra,family_type,taluka,pincode,phone,locations(code,city), family_memberships(relation,is_active, members(id,member_code,full_name,gender,dob,birth_year_est,status,education,occupation,marital_status,blood_group,photo_path,removed_at, member_contacts(mobile)))')
       .eq('status', 'approved').is('removed_at', null).order('family_code').range(from, from + 149);
     if (locationId) q = q.eq('location_id', locationId);
     const { data, error } = await q; if (error) throw error;
@@ -51,8 +51,8 @@ const MAKERS = {
       if (y > 165) y = nextPage(doc, L, 'Detailed Family Records');
       doc.setFillColor(...L.th.dg); doc.rect(8, y, 281, 7, 'F'); doc.setFillColor(...L.th.go); doc.rect(8, y + 7, 281, .5, 'F'); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
       const dd = o.dues && o.dues.get(f.id); doc.text(`${f.family_code}  ·  ${f.head ? f.head.full_name : '—'}  ·  ${f.locations.city}  ·  Gotra: ${f.gotra || '—'}  ·  ${f.hmob || ''}` + (dd ? `  ·  Paid ${money(dd.paid)} / Due ${money(dd.due)}` : ''), 10, y + 5);
-      tbl(doc, L, 'Detailed Family Records', { startY: y + 8, head: [['Member ID', 'Name', 'Relation', 'Gender', 'Age', 'Education', 'Occupation', 'Marital', 'Mobile']],
-        body: f.rows.map(r => { const m = r.members; return [m.member_code || '—', m.full_name, REL_LABELS[r.relation] || r.relation, m.gender || '', ageText(m).replace(' yrs', ''), m.education || '', m.occupation || '', m.marital_status || '', mobOf(m)]; }), styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: L.th.go, lineWidth: .15 } });
+      tbl(doc, L, 'Detailed Family Records', { startY: y + 8, head: [['Member ID', 'Name', 'Relation', 'Gender', 'Age', 'Education', 'Occupation', 'Marital', 'Blood', 'Mobile']],
+        body: f.rows.map(r => { const m = r.members; return [m.member_code || '—', m.full_name, REL_LABELS[r.relation] || r.relation, m.gender || '', ageText(m).replace(' yrs', ''), m.education || '', m.occupation || '', m.marital_status || '', m.blood_group || '', mobOf(m)]; }), styles: { fontSize: 7.5, cellPadding: 1.5, lineColor: L.th.go, lineWidth: .15 } });
       y = doc.lastAutoTable.finalY + 5; }
     footers(doc, L); return doc; },
   async citywise(fams, o) { const { doc, L, y: y0 } = await newDoc('portrait', 'City-wise Directory', o.place, o); const by = {}; fams.forEach(f => (by[f.locations.city] = by[f.locations.city] || []).push(f)); let y = y0;

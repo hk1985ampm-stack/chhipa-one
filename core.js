@@ -43,6 +43,8 @@ export const age = dob => {
   return a;
 };
 export const ageText = m => m.dob ? age(m.dob) + ' yrs' : m.birth_year_est ? '~' + (new Date().getFullYear() - m.birth_year_est) + ' yrs' : (m.age ? '~' + m.age + ' yrs' : '');
+// Best-effort log of prints / downloads / exports (shown in the Activity log)
+export const logAct = (action, what) => { try { Promise.resolve(sb.rpc('activity_note', { p_action: action, p_what: what })).catch(() => {}); } catch {} };
 export const isStateOrSuper = () => state.profile.role === 'super_admin' || (state.profile.role === 'location_admin' && state.profile.title === 'State Admin');
 export const isApprover = () => ['super_admin', 'location_admin'].includes(state.profile.role);
 export const field = (label, el) => h('div', {}, h('label', {}, label), el);

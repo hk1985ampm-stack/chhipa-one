@@ -1,4 +1,4 @@
-import { h, hi, toast, friendly, myLocations, state, isApprover, optList, sb, isStateOrSuper } from './core.js';
+import { h, hi, toast, friendly, myLocations, state, isApprover, optList, sb, isStateOrSuper, logAct } from './core.js';
 import { fetchFamilies, makePdf, makeNotice, DOCS, DUES_DOCS } from './bulkpdf.js';
 import { THEMES, getCfg, saveCfg } from './letterhead.js';
 import { brand } from './brand.js';
@@ -45,7 +45,7 @@ export async function render(main) {
         dues = new Map(data.map(r => [r.family_id, { paid: r.paid, due: r.due }])); dues.fy = fy; }
       msg.textContent = 'Building PDF…';
       const res = await makePdf(k, fams, { place: loc.value ? loc.selectedOptions[0].textContent : 'All locations', photos: photos.checked, cfg: { ...cfg }, dues }, mode);
-      msg.textContent = '✓ Done · ' + fams.length + ' families'; if (mode === 'view') showPdf(res); else toast('PDF ready');
+      logAct(mode === 'view' ? 'VIEW' : 'DOWNLOAD', 'Print Center: ' + k + ' (' + fams.length + ' families)'); msg.textContent = '✓ Done · ' + fams.length + ' families'; if (mode === 'view') showPdf(res); else toast('PDF ready');
     } catch (e) { msg.textContent = friendly(e); } finally { busy = false; }
   };
 
@@ -57,7 +57,7 @@ export async function render(main) {
   const nSize = h('select', {}, h('option', { value: 'a4' }, 'A4 (full page)'), h('option', { value: 'a5' }, 'A5 (half page)'));
   const notice = async mode => { if (!nTitle.value.trim() && !nBody.value.trim()) return toast('Write a heading or the notice text first');
     try { const res = await makeNotice({ category: cat.value, title: nTitle.value, to: nTo.value, ref: nRef.value, body: nBody.value, sign_name: nSign.value, sign_title: nDes.value, size: nSize.value, cfg: { ...cfg },
-      date: nDate.value ? new Date(nDate.value).toLocaleDateString('en-IN') : '' }, mode); if (mode === 'view') showPdf(res); else toast('Notice ready'); } catch (e) { toast(friendly(e)); } };
+      date: nDate.value ? new Date(nDate.value).toLocaleDateString('en-IN') : '' }, mode); logAct(mode === 'view' ? 'VIEW' : 'DOWNLOAD', 'Notice: ' + nTitle.value); if (mode === 'view') showPdf(res); else toast('Notice ready'); } catch (e) { toast(friendly(e)); } };
   const noticeCard = h('div', { class: 'card' }, h('h3', { style: 'margin-top:0' }, hi('Notice / Letter', 'सूचना / पत्र')), h('p', { class: 'muted s' }, 'Printed on your letterhead with logo, address, phone and registration number. Add new categories in Office → Dropdown lists.'),
     h('div', { class: 'row' }, h('div', {}, h('label', {}, 'Category'), cat), h('div', {}, h('label', {}, 'Page size'), nSize)),
     h('label', {}, 'Heading'), nTitle, h('label', {}, 'To'), nTo, h('div', { class: 'row' }, h('div', {}, h('label', {}, 'Ref. no.'), nRef), h('div', {}, h('label', {}, 'Date'), nDate)),

@@ -34,7 +34,7 @@ export function idSpec(p, split) {
   const rl = p.relToHead === 'Head of Family' ? 'Head of Family' : p.relToHead ? p.relToHead + ' of Head' : p.rel;
   T(3, 45.6, 'Relation to Head: ' + rl, { size: 5.6, bold: true, color: DG });
   if (p.headName) T(3, 48.7, 'Family Head: ' + p.headName, { size: 5.8, bold: true });
-  T(3, 51.6, [p.gender, p.age, p.city].filter(Boolean).join(' · ') + (p.mobile ? '  ·  ' + p.mobile : ''), { size: 5.4, color: GREY });
+  T(3, 51.6, [p.gender, p.age, p.blood && 'Blood ' + p.blood, p.city].filter(Boolean).join(' · ') + (p.mobile ? '  ·  ' + p.mobile : ''), { size: 5.4, color: GREY });
   S.push({ k: 'r', x: 62.6, y: 30, w: 20.4, h: 20.4, fill: [255, 255, 255], stroke: GO, lw: .35, round: 1.2 });
   S.push({ k: 'i', x: 63.8, y: 31.2, w: 18, h: 18, src: p.qr });
   S.push({ k: 'r', x: .25, y: .25, w: CW - .5, h: CH - .5, stroke: GO, lw: .5 });
@@ -70,13 +70,13 @@ export async function cardParts(m, rel, fam, withPhoto = true, headName = '') {
   const lg = logoUrl(B.logo_path); if (lg) { try { logo = await dataUrl(lg); } catch {} }
   if (withPhoto && m.photo_path) { try { const u = await photoUrl(m.photo_path); if (u) photo = await dataUrl(u); } catch {} }
   return { logo, photo, qr: qrPng('CJBWS|MEMBER|' + (m.member_code || '') + '|ID:' + (fam.family_code || '')), initials: m.full_name.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase(), name: m.full_name, mcode: m.member_code, fcode: fam.family_code,
-    rel: REL_LABELS[rel] || rel, relToHead: rel === 'head' ? 'Head of Family' : (REL_LABELS[rel] || rel), headName: headName || (rel === 'head' ? m.full_name : ''), gender: m.gender ? m.gender[0].toUpperCase() + m.gender.slice(1) : '', age: m.dob || m.birth_year_est ? ageText(m).replace('~', '') : '', city: fam.locations && fam.locations.city, mobile: mobOf(m) };
+    rel: REL_LABELS[rel] || rel, relToHead: rel === 'head' ? 'Head of Family' : (REL_LABELS[rel] || rel), headName: headName || (rel === 'head' ? m.full_name : ''), gender: m.gender ? m.gender[0].toUpperCase() + m.gender.slice(1) : '', age: m.dob || m.birth_year_est ? ageText(m).replace('~', '') : '', city: fam.locations && fam.locations.city, mobile: mobOf(m), blood: m.blood_group || '' };
 }
 export async function measurer() { await loadPdfLibs(); const doc = new window.jspdf.jsPDF({ unit: 'mm', format: [CW, CH], orientation: 'landscape' }); return { doc, split: (t, size, bold, w) => { doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(size); return doc.splitTextToSize(t, w); },
     fit: (t, size, bold, w) => { doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(size); t = String(t); if (doc.getTextWidth(t) <= w) return t; while (t.length > 1 && doc.getTextWidth(t + '…') > w) t = t.slice(0, -1); return t + '…'; } }; }
 
-export async function render(main, id) {
-  const { data, error } = await sb.from('members').select('id,member_code,full_name,photo_path,status,gender,dob,birth_year_est, member_contacts(mobile), family_memberships(relation,is_active, families(id,family_code,locations(city)))').eq('id', id).maybeSingle();
+export async function renderClassic(main, id) {
+  const { data, error } = await sb.from('members').select('id,member_code,full_name,photo_path,status,gender,dob,birth_year_est,blood_group, member_contacts(mobile), family_memberships(relation,is_active, families(id,family_code,locations(city)))').eq('id', id).maybeSingle();
   if (error) throw error; if (!data) return main.append(h('p', { class: 'err' }, 'Member not found, or you do not have access.'));
   const fm = (data.family_memberships || []).find(x => x.is_active && x.families) || (data.family_memberships || [])[0]; if (!fm) return main.append(h('p', { class: 'err' }, 'This member is not in a family yet.'));
   const withPh = h('input', { type: 'checkbox', checked: true }), holder = h('div', { class: 'idc-wrap' }), note = h('p', { class: 'muted s noprint' }, 'Credit-card size (85.6 × 54 mm). The screen card and the PDF use the same layout.');
@@ -89,4 +89,18 @@ export async function render(main, id) {
     h('div', { class: 'card noprint' }, h('label', { class: 'chk' }, withPh, ' Show photo'), h('div', { class: 'actions' }, h('button', { class: 'btn alt', onclick: () => window.print() }, '🖨 Print'), h('button', { class: 'btn', onclick: pdf }, '⬇ Save PDF'))),
     h('style', {}, '@page{size:85.6mm 54mm;margin:0}'));
   withPh.addEventListener('change', build); addEventListener('resize', fit); await build(); setTimeout(fit, 120);
+}
+
+// Framed print format: society header, State/Location admin details, the ID card, footer
+export async function render(main, id) {
+  const { data, error } = await sb.from('members').select('id,member_code,full_name,photo_path,status,gender,dob,birth_year_est,blood_group, member_contacts(mobile), family_memberships(relation,is_active, families(id,family_code,location_id,locations(city)))').eq('id', id).maybeSingle();
+  if (error) throw error; if (!data) return main.append(h('p', { class: 'err' }, 'Member not found, or you do not have access.'));
+  const fm = (data.family_memberships || []).find(x => x.is_active && x.families) || (data.family_memberships || [])[0]; if (!fm) return main.append(h('p', { class: 'err' }, 'This member is not in a family yet.'));
+  const hq = await sb.from('family_memberships').select('members(full_name)').eq('family_id', fm.families.id).eq('relation', 'head').eq('is_active', true).maybeSingle(), headName = (hq.data && hq.data.members && hq.data.members.full_name) || '';
+  const { officersFor } = await import('./officers.js'), { cardPageView } = await import('./cardframe.js'), officers = await officersFor(fm.families.location_id);
+  const withPh = h('input', { type: 'checkbox', checked: true }); let v;
+  v = await cardPageView(main, { heading: 'ID Card · ' + data.full_name, backHref: '#family/' + fm.families.id, backText: '← Family', officers, title: 'MEMBER ID CARD', fileName: 'id-' + (data.member_code || 'card'), logWhat: 'ID card ' + (data.member_code || data.full_name),
+    build: async m => idSpec(await cardParts(data, fm.relation, fm.families, withPh.checked, headName), m.split), note: ['Present this card with a valid photo ID.', 'Issued by the society; valid while membership is active.'],
+    extra: h('label', { class: 'chk' }, withPh, ' Show photo') });
+  withPh.addEventListener('change', () => v.redraw());
 }

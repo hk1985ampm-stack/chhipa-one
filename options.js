@@ -11,5 +11,6 @@ export const EDUCATION = ['Illiterate', 'Primary (1-5)', 'Middle (6-8)', '10th',
 export const OCCUPATIONS = ['Student', 'Business', 'Service', 'Farmer', 'Labour', 'Housewife', 'Retired', 'Professional', 'Unemployed', 'Other'];
 export const DEFAULTS = { gotra: ['Taak', 'Bhati (Bhatee)', 'Chauhan', 'Deora (Doera)', 'Rao', 'Panwar', 'Molani', 'Kukda', 'Sonawa', 'Mandawara', 'Gohil (Gahlot)', 'Bhavsar', 'Dilwari', 'Rangara'],
   education: EDUCATION.slice(0, -1), occupation: OCCUPATIONS.slice(0, -1), family_type: ['Joint', 'Nuclear'], house_type: ['Own House', 'Rented', 'Joint / Ancestral'],
+  blood_group: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
   transfer_reason: ['Change of residence / location', 'Marriage', 'Job / business', 'Education', 'Family separation', 'Correction of wrong location'],
   notice_category: ['General Notice', 'Meeting Notice', 'Fund Appeal', 'Eid Mubarak', 'Condolence', 'Programme Invitation'] };

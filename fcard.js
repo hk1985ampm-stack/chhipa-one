@@ -7,13 +7,15 @@ import { qrPng } from './pdf.js';
 import { THEMES, getCfg } from './letterhead.js';
 import { dataUrl } from './idcard.js';
 import { sb, isStateOrSuper } from './core.js';
+import { officersFor, nameLine, officerLine } from './officers.js';
+const OFF_H = 14;
 
 export const FW = 297, FH = 210;
 const DG = [13, 50, 30], GO = [180, 140, 40], CR = [250, 248, 238], WH = [255, 255, 255], INK = [20, 20, 20], GREY = [100, 100, 100];
 const REL_PDF = { head: 'Khud (Self)', spouse: 'Patni / Pati (Spouse)', son: 'Beta (Son)', daughter: 'Beti (Daughter)', 'daughter-in-law': 'Bahu (Daughter-in-law)', 'son-in-law': 'Damad (Son-in-law)',
   grandson: 'Pota (Grandson)', granddaughter: 'Poti (Granddaughter)', father: 'Walid (Father)', mother: 'Walida (Mother)', brother: 'Bhai (Brother)', sister: 'Behen (Sister)' };
 const COLS = [['S/N', 12, 'c'], ['Name', 62, 'l'], ['Age', 12, 'c'], ['Gender', 18, 'c'], ['Relation', 44, 'l'], ['Education', 34, 'l'], ['Occupation', 38, 'l'], ['Marital', 28, 'l'], ['Mobile', 41, 'l']]; // = 289 = W-8
-const HEAD_H = 8, ROW_H = 7.2, T1 = 89, T2 = 9, BOTTOM = FH - 11;
+const HEAD_H = 8, ROW_H = 7.2, T1 = 89 + 14, T2 = 9, BOTTOM = FH - 11;
 const mobOf = m => { const c = m && m.member_contacts; return (Array.isArray(c) ? c[0] : c)?.mobile || ''; };
 
 // Dues for the printed card: only when a State Admin / Super Admin ticked the box on the family page
@@ -27,7 +29,8 @@ export async function famParts(fam, rows, dues = null) {
   if (hm && hm.photo_path) { try { const u = await photoUrl(hm.photo_path); if (u) photo = await dataUrl(u); } catch {} }
   try { stamp = await dataUrl('stamp.png'); } catch {}
   const code = fam.family_code || 'PENDING';
-  return { logo, photo, stamp, hm, code, dues, qr: qrPng('CJBWS|' + (hm ? hm.full_name : '') + '|ID:' + code), initials: (hm ? hm.full_name : '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase() };
+  const officers = await officersFor(fam.location_id || (fam.locations && fam.locations.id));
+  return { officers, logo, photo, stamp, hm, code, dues, qr: qrPng('CJBWS|' + (hm ? hm.full_name : '') + '|ID:' + code), initials: (hm ? hm.full_name : '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase() };
 }
 
 // m = { split, fit } measuring helpers (jsPDF) so lines break and truncate identically on screen and in the PDF
@@ -49,8 +52,10 @@ export function famSpec(fam, rows, P, m, ageOf) {
   if (P.logo) S.push({ k: 'i', x: 10.5, y: 6.5, w: 15, h: 15, src: P.logo });
   else { T(S, 18, 11, 'ESTD.', { size: 5, bold: true, color: DG, align: 'center' }); T(S, 18, 15.5, B.estd || '2016', { size: 5, bold: true, color: DG, align: 'center' }); }
   T(S, W / 2, 13, m.fit(B.header_line1 || 'CHHIPA JAMAT BARAR WELFARE SOCIETY', 14, true, 215), { size: 14, bold: true, color: WH, align: 'center' });
-  T(S, W / 2, 20, m.fit(B.header_line2 || 'Chandur Bazar, Maharashtra  -  All India', 7, false, 215), { size: 7, color: [200, 225, 200], align: 'center' });
+  T(S, W / 2, 18.6, m.fit(B.header_line2 || 'Chandur Bazar, Maharashtra  -  All India', 7, false, 215), { size: 7, color: [200, 225, 200], align: 'center' });
+  { const cf = getCfg(), dl = [B.address_line, B.contact && 'Ph: ' + B.contact, B.reg_no && 'Reg. No. ' + B.reg_no].filter(Boolean).join('   |   '); if (dl) T(S, W / 2, 23.4, m.fit(dl, 6.8, false, 215), { size: 6.8, color: [255, 245, 200], align: 'center' }); }
   R(S, W - 30, 4, 20, 20, { fill: WH, stroke: GO, lw: .4, round: 1.5 }); S.push({ k: 'i', x: W - 28.5, y: 5.5, w: 17, h: 17, src: P.qr });
+  const p1 = S.length;
   R(S, 2, 26, W - 4, 9, { fill: DG }); L(S, 2, 35.6, W - 2, 35.6, .5, th.lt); L(S, 2, 26, W - 2, 26, .5, GO); L(S, 2, 35, W - 2, 35, .5, GO);
   T(S, W / 2, 32, 'FAMILY CARD', { size: 13, bold: true, color: WH, align: 'center' });
   R(S, 2, 35, W - 4, 42, { fill: WH, stroke: GO, lw: .3 });
@@ -70,6 +75,13 @@ export function famSpec(fam, rows, P, m, ageOf) {
   T(S, W / 2, 84.5, 'MEMBERS (' + rows.length + ')', { size: 10, bold: true, color: WH, align: 'center' });
   if (P.dues) { R(S, 186, 79, 105, 8, { fill: [255, 244, 214], stroke: GO, lw: .4, round: 2 }); T(S, 238.5, 84.4, 'Annual donation ' + P.dues.fy + ':  Paid Rs. ' + Math.round(P.dues.paid) + '   |   Due Rs. ' + Math.round(P.dues.due), { size: 8, bold: true, color: DG, align: 'center' }); }
 
+  // office bearers strip (14 mm) — everything from the FAMILY CARD bar down is shifted
+  S.slice(p1).forEach(e => { e.y += OFF_H; });
+  { const off = P.officers || [], st = off.filter(o => o.level === 'state_admin'), la = off.filter(o => o.level !== 'state_admin'), y0 = 26.6;
+    R(S, 2, 26, W - 4, OFF_H, { fill: th.soft }); L(S, 2, 26 + OFF_H, W - 2, 26 + OFF_H, .4, GO); L(S, W / 2, 28, W / 2, 24 + OFF_H, .3, GO);
+    [['STATE ADMIN', st, 6], ['LOCATION ADMIN', la, W / 2 + 4]].forEach(([lab, list, x]) => { T(S, x, y0 + 3.4, lab, { size: 6.5, bold: true, color: DG });
+      if (!list.length) T(S, x, y0 + 7.8, '— not assigned —', { size: 7, color: GREY });
+      list.slice(0, 2).forEach((o, i) => T(S, x, y0 + 7.8 + i * 3.6, m.fit(nameLine(o) + '  |  ' + officerLine(o), 7, true, W / 2 - 12), { size: 7, bold: true })); }); }
   // ---- members table (fixed row height, so every page lines up) ----
   const d = v => v || '—', cell = r => { const mm = r.members; return [d(''), d(mm.full_name), d(String(ageOf(mm)).replace(' yrs', '').replace('~', '')), d((mm.gender || '').replace(/^./, s => s.toUpperCase())), REL_PDF[r.relation] || REL_LABELS[r.relation] || r.relation, d(mm.education), d(mm.occupation), d(mm.marital_status), d(mobOf(mm))]; };
   let cur = S, y = T1, first = true; tableHead(cur, y); y += HEAD_H;

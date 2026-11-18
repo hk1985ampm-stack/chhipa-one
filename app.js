@@ -35,7 +35,8 @@ const ROUTES = {
   announce: () => import('./announce.js'),
   cevents: () => import('./cevents.js'),
   reglinks: () => import('./reglinks.js'),
-  idcard: () => import('./idcard.js')
+  idcard: () => import('./idcard.js'),
+  staffcard: () => import('./staffcard.js')
 };
 const root = document.getElementById('app');
 
@@ -93,7 +94,7 @@ async function render() {
   const loader = ROUTES[route] || ROUTES[''];
   const mod = await loader();
   if (my !== renderId) return;   // a newer navigation already started
-  document.body.classList.toggle('idprint', route === 'idcard' || route === 'card');
+  document.body.classList.toggle('idprint', route === 'idcard' || route === 'card' || route === 'staffcard');
   const main = h('main');
   root.replaceChildren(
     h('header', { class: 'bar' },

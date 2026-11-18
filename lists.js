@@ -1,7 +1,7 @@
 import { sb, h, hi, toast, friendly, loadOptions } from './core.js';
 import { loadCustomFields } from './customfields.js';
 
-const LISTS = [['gotra', 'Gotra · गोत्र'], ['education', 'Education · शिक्षा'], ['occupation', 'Occupation · व्यवसाय'], ['family_type', 'Family type · प्रकार'], ['house_type', 'House · मकान'],
+const LISTS = [['blood_group', 'Blood group · रक्त समूह'], ['gotra', 'Gotra · गोत्र'], ['education', 'Education · शिक्षा'], ['occupation', 'Occupation · व्यवसाय'], ['family_type', 'Family type · प्रकार'], ['house_type', 'House · मकान'],
   ['transfer_reason', 'Transfer reason'], ['notice_category', 'Notice category']];
 
 export async function render(main) {

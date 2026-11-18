@@ -40,6 +40,7 @@ export function memberForm(init = {}, { fixedRelation = null, ctx = null } = {})
   const edu = selectOther(optList('education'), v('education'));
   const occ = selectOther(optList('occupation'), v('occupation'));
   const mar = h('select', {}, h('option', { value: '' }, 'Select · चुनें'), opt(MARITAL, v('marital_status')));
+  const bg = h('select', {}, h('option', { value: '' }, 'Select · चुनें'), optList('blood_group').map(x => h('option', { value: x, selected: x === v('blood_group') }, x)));
   const mother = h('input', { value: v('mother_name'), placeholder: "Mother's name" });
   const wa = h('input', { type: 'tel', inputmode: 'numeric', value: v('whatsapp'), placeholder: 'WhatsApp number' });
   const email = h('input', { type: 'email', value: v('email'), placeholder: 'Email' });
@@ -86,10 +87,10 @@ export function memberForm(init = {}, { fixedRelation = null, ctx = null } = {})
     fld('Mobile · मोबाइल', mobile),
     fld("Father's name · पिता का नाम", father),
     h('div', { class: 'row' }, fld('Education · शिक्षा', edu.el), fld('Occupation · व्यवसाय', occ.el)),
-    fld('Marital status · वैवाहिक स्थिति', mar),
+    h('div', { class: 'row' }, fld('Marital status · वैवाहिक स्थिति', mar), fld('Blood group · रक्त समूह', bg)),
     h('details', {}, h('summary', { class: 'muted' }, 'More details · और जानकारी'), fld("Mother's name", mother), fld('WhatsApp', wa), fld('Email', email)));
   const read = () => ({ photo: photoData, name: name.value.trim(), relation: fixedRelation || rel.value, gender: gender.value, dob: dob.value, age: dob.value ? '' : age.value, father_name: father.value.trim(),
-    mobile: digits(mobile.value), education: edu.get(), occupation: occ.get(), marital_status: mar.value,
+    mobile: digits(mobile.value), education: edu.get(), occupation: occ.get(), marital_status: mar.value, blood_group: bg.value,
     mother_name: mother.value.trim(), whatsapp: digits(wa.value), email: email.value.trim(), spouse_of: mtoWrap.hidden ? '' : mto.value });
   const validate = () => {
     const m = read();

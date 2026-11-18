@@ -1,4 +1,4 @@
-import { sb, h, ageText, state } from './core.js';
+import { sb, h, ageText, state, logAct } from './core.js';
 import { REL_LABELS } from './options.js';
 import { brand, logoUrl } from './brand.js';
 import { photoUrl } from './photo.js';
@@ -27,11 +27,11 @@ export async function render(main, id) {
   const mm = 96 / 25.4, holder = h('div', { class: 'fc-pages' });
   const wraps = pages.map(S => { const c = toHtml(S, FW, FH); return h('div', { class: 'fpw' }, c); }); holder.append(...wraps);
   const fit = () => { const s = Math.min(1.6, ((main.clientWidth || innerWidth) - 4) / (FW * mm)); wraps.forEach(w => { w.firstChild.style.transform = 'scale(' + s + ')'; w.firstChild.style.transformOrigin = 'top left'; w.style.width = (FW * mm * s) + 'px'; w.style.height = (FH * mm * s) + 'px'; }); };
-  const save = async () => { const d = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }); pages.forEach((S, i) => { if (i) d.addPage(); drawPdf(d, S); }); d.save('FamilyCard_' + ((hm ? hm.full_name : 'family').replace(/[^\w\s-]/g, '').replace(/\s+/g, '_').slice(0, 40)) + '.pdf'); };
+  const save = async () => { const d = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }); pages.forEach((S, i) => { if (i) d.addPage(); drawPdf(d, S); }); logAct('DOWNLOAD', 'Family card ' + (fam.family_code || '')); d.save('FamilyCard_' + ((hm ? hm.full_name : 'family').replace(/[^\w\s-]/g, '').replace(/\s+/g, '_').slice(0, 40)) + '.pdf'); };
   main.append(...[
     h('style', {}, '@page{size:A4 landscape;margin:0}'),
     h('div', { class: 'noprint actions' }, h('a', { class: 'btn alt', href: '#family/' + id }, '← Back'),
-      h('button', { class: 'btn alt', onclick: () => window.print() }, '🖨 Print'), h('button', { class: 'btn', onclick: save }, '⬇ Save PDF'),
+      h('button', { class: 'btn alt', onclick: () => { logAct('PRINT', 'Family card ' + (fam.family_code || '')); window.print(); } }, '🖨 Print'), h('button', { class: 'btn', onclick: save }, '⬇ Save PDF'),
       h('a', { class: 'btn alt', target: '_blank', rel: 'noopener', href: 'https://wa.me/?text=' + encodeURIComponent(text) }, 'WhatsApp')),
     h('p', { class: 'muted s noprint' }, 'A4 landscape. This screen, Print and Save PDF all use the same layout.'), holder]);
   fit(); setTimeout(fit, 150); addEventListener('resize', fit);

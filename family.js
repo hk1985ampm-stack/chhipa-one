@@ -16,7 +16,7 @@ const REASON = { married: 'Married — moved to husband’s family', removed: 'R
 
 export async function render(main, id) {
   const q1 = () => sb.from('families').select('*, locations(code,city,state)').eq('id', id).maybeSingle();
-  const q2 = () => sb.from('family_memberships').select('id,relation,is_active,end_date,reason,created_at, members(id,member_code,full_name,father_name,gender,dob,birth_year_est,photo_path,status,education,occupation,marital_status,record_state,mother_name,version,removed_at,removed_reason,extra, member_contacts(mobile,whatsapp,email))').eq('family_id', id);
+  const q2 = () => sb.from('family_memberships').select('id,relation,is_active,end_date,reason,created_at, members(id,member_code,full_name,father_name,gender,dob,birth_year_est,photo_path,status,education,occupation,marital_status,blood_group,photo_pending,record_state,mother_name,version,removed_at,removed_reason,extra, member_contacts(mobile,whatsapp,email))').eq('family_id', id);
   const q3 = () => sb.from('family_history').select('*').eq('family_id', id).order('created_at', { ascending: false });
   const [f, ms, hs] = await Promise.all([cached('fam_' + id, q1), cached('mem_' + id, q2), cached('his_' + id, q3)]);
   const offline = f.offline || ms.offline;
@@ -211,7 +211,7 @@ export async function render(main, id) {
   function editMember(r) {
     const m = r.members, c = Array.isArray(m.member_contacts) ? m.member_contacts[0] : m.member_contacts;
     const mf = memberForm({ name: m.full_name, relation: r.relation, gender: m.gender, dob: m.dob, age: m.birth_year_est ? new Date().getFullYear() - m.birth_year_est : '', father_name: m.father_name, mother_name: m.mother_name,
-      education: m.education, occupation: m.occupation, marital_status: m.marital_status, mobile: c && c.mobile, whatsapp: c && c.whatsapp, email: c && c.email }, { fixedRelation: r.relation }), cf = cfBlock(m.extra || {});
+      education: m.education, occupation: m.occupation, marital_status: m.marital_status, blood_group: m.blood_group, mobile: c && c.mobile, whatsapp: c && c.whatsapp, email: c && c.email }, { fixedRelation: r.relation }), cf = cfBlock(m.extra || {});
     card('Edit member · ' + m.full_name, mf.el, cf.el, bar(sub('Save', async b => {
       const e = mf.validate(); if (e) return toast(e); b.disabled = true;
       const { photo, ...pl } = mf.read(); const ex = cf.read(); if (ex) pl.extra = ex;
@@ -222,7 +222,10 @@ export async function render(main, id) {
       if (photo && photo.startsWith('data:')) await uploadPhotos([m.id], [{ index: 0, data: photo }]);
       toast('Saved'); reload(); })));
   }
-  const memAvatar = m => { const b = h('div', { class: 'ph sm' }, initials(m.full_name)); if (m.photo_path) photoUrl(m.photo_path).then(u => { if (u) b.replaceChildren(h('img', { src: u, alt: '' })); }); return b; };
+  const memAvatar = m => { const b = h('div', { class: 'ph sm' }, initials(m.full_name)); if (m.photo_path) photoUrl(m.photo_path).then(u => { if (u) b.replaceChildren(h('img', { src: u, alt: '' })); });
+    else if (m.photo_pending) { b.replaceChildren(h('img', { src: m.photo_pending, alt: '', title: 'Photo sent with the self-registration form' }));
+      b.append(h('button', { class: 'btn sm', style: 'position:absolute;bottom:-6px;left:0;font-size:10px;padding:1px 5px', title: 'Save this photo to the member', onclick: async ev => { ev.stopPropagation(); try { await uploadPhotos([m.id], [{ index: 0, data: m.photo_pending }]); await sb.rpc('member_photo_pending_clear', { p_id: m.id }); toast('Photo saved'); location.reload(); } catch (e) { toast(friendly(e)); } } }, '✔ Use')); b.style.position = 'relative'; }
+    return b; };
 
   const hm = headRow && headRow.members;
   const hmobile = hm ? mobile(hm) : '';
@@ -262,7 +265,7 @@ export async function render(main, id) {
       return h('div', { class: 'card mem' + (hist ? ' grey' : '') },
         h('div', { class: 'mem-top' }, memAvatar(m), h('div', { class: 'mem-txt' },
           h('div', { class: 'item' }, h('span', {}, h('b', {}, m.full_name), ' · ', relLabel(r.relation)), m.member_code ? h('span', { class: 'muted nowrap' }, m.member_code) : pill(m.record_state)),
-          h('div', { class: 'muted', style: 'font-size:14px' }, [m.gender, ageText(m), m.marital_status, m.education, m.occupation, mobile(m),
+          h('div', { class: 'muted', style: 'font-size:14px' }, [m.gender, ageText(m), m.marital_status, m.blood_group && 'Blood ' + m.blood_group, m.education, m.occupation, mobile(m),
             ...cfSummary(m), m.status === 'deceased' ? 'Deceased' : gone ? 'Removed' + (m.removed_reason ? ': ' + m.removed_reason : '') : hist ? (REASON[r.reason] || 'Historical') : null].filter(Boolean).join(' · ')))),
         (adm || medit) && !fam.removed_at ? h('div', { class: 'mem-btns' },
           !offline ? h('a', { class: 'btn alt sm', href: '#idcard/' + r.members.id }, '🪪 ID Card') : null,

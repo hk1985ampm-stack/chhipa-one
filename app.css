@@ -205,3 +205,8 @@ button.tile{font:inherit;text-align:left;cursor:pointer}.tile b{font-size:15px}.
 .pdfview iframe{flex:1;width:100%;border:0;background:#fff}.pdfview p{margin:0;padding:6px 10px;background:#0d3220;color:#cfe}
 details.card>summary{cursor:pointer;font-weight:700;font-size:16px}
 .doc-grid{align-items:stretch}.tile.doc .doc-btns{margin-top:auto}details.card>summary .hi{margin-left:8px}
+
+@media print{body.idprint .idc-wrap.full{height:297mm!important;width:210mm}}
+.idc-wrap.full{margin:0 auto}
+
+.consent-note{background:var(--soft,#f1f7f3);border-left:4px solid #b88a1b;border-radius:8px;padding:8px 12px;margin:10px 0;font-size:12.5px;line-height:1.45}.consent-note p{margin:4px 0}
