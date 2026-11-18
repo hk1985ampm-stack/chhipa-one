@@ -415,4 +415,7 @@ html.dark .empty .pic svg{filter:invert(.1)}
 .tile[href="#appsettings"]::before{content:"🎛️"}
 .tile[href="#dashboard"]::before{content:"📊"}
 
+
+.mcard{display:flex;flex-direction:column;gap:6px}
+.mcard .pill{align-self:flex-start}
 /*MODERN-END*/

@@ -5,14 +5,14 @@ import { dashboardBlock } from './dashboard.js';
 import { SECTION_ORDER } from './nav.js';
 import { logoImg, brandName, brandSub, brand } from './brand.js';
 
-const APP_VERSION = 'v29 · Minimal luxe themes, menu & dashboard';
+const APP_VERSION = 'v30 · Matrimony & old-backup import';
 const tile = (href, en, hindi, soon, badge) =>
   h(soon ? 'div' : 'a', { class: 'tile' + (soon ? ' soon' : ''), href: soon ? null : href },
     h('span', { class: 'en' }, en), h('span', { class: 'hi' }, lang.v === 'ur' ? (UR[en] || hindi) : hindi), soon ? h('span', { class: 'tag' }, 'Coming in Phase ' + soon) : null, badge ? h('span', { class: 'badge' }, String(badge)) : null);
 
 async function fileCheck() {
   const miss = [];
-  for (const f of ['auth.js', 'profile.js', 'inbox.js', 'settings.js', 'appsettings.js', 'decorate.js', 'ui.js', 'nav.js', 'dashboard.js', 'modern.css']) { try { const r = await fetch(f, { cache: 'no-cache' }); if (!r.ok) miss.push(f); } catch {} }
+  for (const f of ['auth.js', 'profile.js', 'inbox.js', 'settings.js', 'appsettings.js', 'decorate.js', 'ui.js', 'nav.js', 'dashboard.js', 'matrimony.js', 'modern.css']) { try { const r = await fetch(f, { cache: 'no-cache' }); if (!r.ok) miss.push(f); } catch {} }
   try { const t = await (await fetch('app.js', { cache: 'no-cache' })).text(); if (!t.includes('appsettings')) miss.push('app.js (old copy)'); } catch {}
   return miss;
 }
@@ -33,7 +33,7 @@ export async function render(main) {
       appr ? tile('#registry/removed', 'Removed Entries', 'हटाई गई प्रविष्टियाँ') : null]],
     ['welfare', ['💚 ', hi('Welfare', 'कल्याण')], [isStateOrSuper() ? tile('#donations', 'Annual Donation', 'वार्षिक चंदा') : null, tile('#zakat', 'Zakat Calculator', 'ज़कात कैलकुलेटर')]],
     ['settings', ['⚙️ ', hi('App Settings', 'ऐप सेटिंग')], [tile('#appsettings', 'Theme, Font & Buttons', 'थीम, फ़ॉन्ट, बटन'), tile('#profile', 'My Profile & Photo', 'मेरी प्रोफ़ाइल')]],
-    ['community', ['🤝 ', hi('Community', 'समुदाय')], [tile('#announce', 'Announcements', 'घोषणाएँ'), tile('#cevents', 'Events', 'कार्यक्रम'), tile('#meetings', 'Meetings', 'बैठक'), tile('#sevaks', 'Sevaks', 'सेवक')]],
+    ['community', ['🤝 ', hi('Community', 'समुदाय')], [tile('#announce', 'Announcements', 'घोषणाएँ'), tile('#cevents', 'Events', 'कार्यक्रम'), tile('#meetings', 'Meetings', 'बैठक'), tile('#matrimony', 'Matrimony', 'वैवाहिक'), tile('#sevaks', 'Sevaks', 'सेवक')]],
     ...(appr ? [['office', ['🏢 ', hi('Office', 'कार्यालय')], [
       tile('#registry/pending', 'Pending Approvals', 'लंबित स्वीकृति', false, pend),
       sup ? tile('#communities', 'Communities', 'समुदाय') : null, sup ? tile('#staff', 'Staff & Agents', 'स्टाफ / एजेंट') : tile('#myteam', 'My Team · assign', 'मेरी टीम'),

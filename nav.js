@@ -8,7 +8,7 @@ export function menuFor(p) {
     ['families', '👨‍👩‍👧', 'Family Registry', 'परिवार रजिस्टर', [['#registry', 'Family Registry'], !ro && ['#add', 'Add Family'], !ro && ['#requests', 'Change Requests'], ['#events', 'Life Events'], ['#notifications', 'Notifications'], ['#reports', 'Reports'], ['#reports/quality', 'Data Quality'], appr && ['#inbox', 'Requests Inbox'], appr && ['#registry/removed', 'Removed Entries']]],
     appr && ['office', '🏢', 'Office', 'कार्यालय', [['#registry/pending', 'Pending Approvals'], sup && ['#communities', 'Communities'], sup ? ['#staff', 'Staff & Agents'] : ['#myteam', 'My Team'], ['#activity', 'Agent Activity'], ['#scan', 'Scan QR'], ['#reglinks', 'Registration Links'], ['#reminders', 'Birthdays & WhatsApp'], (sup || p.can_export || p.role === 'location_admin') && ['#print', 'Print Center'], ['#excel', 'Excel Import / Export'], ['#tools', 'Duplicates & Bulk Edit'], sup && ['#lists', 'Dropdown Lists'], sup && ['#backup', 'Backup'], sup && ['#audit', 'Audit Log']]],
     ['welfare', '💚', 'Welfare', 'कल्याण', [isStateOrSuper() && ['#donations', 'Annual Donation'], ['#zakat', 'Zakat Calculator']]],
-    ['community', '🤝', 'Community', 'समुदाय', [['#announce', 'Announcements'], ['#cevents', 'Events'], ['#meetings', 'Meetings'], ['#sevaks', 'Sevaks']]],
+    ['community', '🤝', 'Community', 'समुदाय', [['#announce', 'Announcements'], ['#cevents', 'Events'], ['#meetings', 'Meetings'], ['#sevaks', 'Sevaks'], ['#matrimony', 'Matrimony']]],
     ['settings', '⚙️', 'App Settings', 'ऐप सेटिंग', [['#appsettings', 'Theme, Font & Buttons'], ['#profile', 'My Profile & Photo']]],
   ].filter(Boolean);
   return M.map(m => [...m.slice(0, 4), m[4].filter(Boolean)]);

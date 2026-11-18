@@ -45,7 +45,8 @@ const ROUTES = {
   profile: () => import('./profile.js'),
   appsettings: () => import('./appsettings.js'),
   dashboard: () => import('./dashboard.js'),
-  inbox: () => import('./inbox.js')
+  inbox: () => import('./inbox.js'),
+  matrimony: () => import('./matrimony.js')
 };
 const root = document.getElementById('app');
 
