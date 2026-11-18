@@ -1,36 +1,22 @@
 import { sb, h, hi, state, ROLE_LABEL, isStateOrSuper } from './core.js';
 import { lang, UR } from './i18n.js';
-import { sortable, installCard, countUp, barChart, donut } from './ui.js';
+import { installCard } from './ui.js';
+import { dashboardBlock } from './dashboard.js';
+import { SECTION_ORDER } from './nav.js';
 import { logoImg, brandName, brandSub, brand } from './brand.js';
 
-const APP_VERSION = 'v28 · Premium themes, side rail, dashboard';
+const APP_VERSION = 'v29 · Minimal luxe themes, menu & dashboard';
 const tile = (href, en, hindi, soon, badge) =>
   h(soon ? 'div' : 'a', { class: 'tile' + (soon ? ' soon' : ''), href: soon ? null : href },
     h('span', { class: 'en' }, en), h('span', { class: 'hi' }, lang.v === 'ur' ? (UR[en] || hindi) : hindi), soon ? h('span', { class: 'tag' }, 'Coming in Phase ' + soon) : null, badge ? h('span', { class: 'badge' }, String(badge)) : null);
 
 async function fileCheck() {
   const miss = [];
-  for (const f of ['auth.js', 'profile.js', 'inbox.js', 'settings.js', 'appsettings.js', 'decorate.js', 'ui.js', 'modern.css']) { try { const r = await fetch(f, { cache: 'no-cache' }); if (!r.ok) miss.push(f); } catch {} }
+  for (const f of ['auth.js', 'profile.js', 'inbox.js', 'settings.js', 'appsettings.js', 'decorate.js', 'ui.js', 'nav.js', 'dashboard.js', 'modern.css']) { try { const r = await fetch(f, { cache: 'no-cache' }); if (!r.ok) miss.push(f); } catch {} }
   try { const t = await (await fetch('app.js', { cache: 'no-cache' })).text(); if (!t.includes('appsettings')) miss.push('app.js (old copy)'); } catch {}
   return miss;
 }
-function dashboard(p, lev, pend) {
-  const box = h('div', { class: 'dash' }), nums = h('div', { class: 'kpis' }), charts = h('div', { class: 'charts' });
-  const kpi = (ic, label, v, href, cls) => { const n = h('b', {}, '0'); const el = h('a', { class: 'kpi ' + cls, href }, h('span', { class: 'ki' }, ic), h('div', {}, n, h('small', {}, label))); setTimeout(() => countUp(n, v), 120); return el; };
-  const cnt = (t, f) => { let q = sb.from(t).select('id', { count: 'exact', head: true }); if (f) q = f(q); return q.then(r => r.count || 0, () => 0); };
-  box.append(nums, charts);
-  nums.append(...[1, 2, 3, 4].map(() => h('div', { class: 'kpi skl' })));
-  const six = new Date(); six.setDate(1); six.setMonth(six.getMonth() - 5);
-  Promise.all([cnt('families', q => q.eq('status', 'approved')), cnt('members', q => q.eq('status', 'active')), cnt('members', q => q.eq('status', 'active').eq('gender', 'male')), cnt('members', q => q.eq('status', 'active').eq('gender', 'female')),
-    sb.from('families').select('created_at').gte('created_at', six.toISOString()).limit(3000).then(r => r.data || [], () => [])]).then(([fam, mem, men, wom, rows]) => {
-    nums.replaceChildren(kpi('👨‍👩‍👧', 'Families', fam, '#registry', 'k1'), kpi('🧑‍🤝‍🧑', 'Members', mem, '#registry', 'k2'), kpi('⏳', 'Pending', pend, '#registry/pending', 'k3'), kpi('🎉', 'Life events', lev, '#events', 'k4'));
-    const labs = [], vals = []; for (let k = 0; k < 6; k++) { const d = new Date(six.getFullYear(), six.getMonth() + k, 1); labs.push(d.toLocaleString('en', { month: 'short' })); vals.push(rows.filter(r => { const c = new Date(r.created_at); return c.getMonth() === d.getMonth() && c.getFullYear() === d.getFullYear(); }).length); }
-    charts.replaceChildren(h('div', { class: 'card' }, h('b', {}, 'New families · 6 months'), barChart(vals, labs)), h('div', { class: 'card' }, h('b', {}, 'Members'), donut([{ n: 'Men', v: men, c: 'var(--c2)' }, { n: 'Women', v: wom, c: 'var(--gold)' }, { n: 'Other', v: Math.max(0, mem - men - wom), c: 'var(--c1)' }])));
-  });
-  return box;
-}
 export async function render(main) {
-  main.classList.add('has-rail');
   let unread = 0, pend = 0, lev = 0, inb = 0;
   try {
     const r = await sb.from('notifications').select('id', { count: 'exact', head: true }).eq('is_read', false); unread = r.count || 0;
@@ -53,16 +39,12 @@ export async function render(main) {
       sup ? tile('#communities', 'Communities', 'समुदाय') : null, sup ? tile('#staff', 'Staff & Agents', 'स्टाफ / एजेंट') : tile('#myteam', 'My Team · assign', 'मेरी टीम'),
       tile('#activity', 'Agent Activity', 'एजेंट गतिविधि'), tile('#scan', 'Scan QR', 'क्यू आर स्कैन'), tile('#reglinks', 'Registration Links', 'पंजीकरण लिंक'), tile('#reminders', 'Birthdays & WhatsApp', 'रिमाइंडर'), (sup || p.can_export || ['location_admin'].includes(p.role)) ? tile('#print', 'Print Center', 'प्रिंट सेंटर') : null, tile('#excel', 'Excel Import / Export', 'एक्सेल'), tile('#tools', 'Duplicates & Bulk Edit', 'डुप्लिकेट / बल्क एडिट'), sup ? tile('#lists', 'Dropdown Lists', 'ड्रॉपडाउन सूची') : null, sup ? tile('#backup', 'Backup', 'बैकअप') : null, sup ? tile('#audit', 'Audit Log', 'ऑडिट लॉग') : null]]] : [])];
   let cur = sessionStorage.getItem('home_tab'); if (!SECTIONS.some(s => s[0] === cur)) cur = 'families';
-  const body = h('div'), tabs = h('nav', { class: 'rail noprint', title: 'Hold and drag to re-order' });
-  let order = []; try { order = JSON.parse(localStorage.getItem('chhipa_rail') || '[]'); } catch {}
-  const ordered = () => [...SECTIONS].sort((a, b) => { const x = order.indexOf(a[0]), y = order.indexOf(b[0]); return (x < 0 ? 99 : x) - (y < 0 ? 99 : y); });
+  const body = h('div'), tabs = h('div', { class: 'chips cat-tabs' });
+  const ordered = () => [...SECTIONS].sort((x, y) => SECTION_ORDER.indexOf(x[0]) - SECTION_ORDER.indexOf(y[0]));
   const draw = () => {
-    tabs.replaceChildren(...ordered().map(([k, t], i) => { const n = k === 'families' ? lev : k === 'office' ? pend : 0; return h('button', { class: 'rail-item' + (cur === k ? ' on' : ''), 'data-k': k, style: '--d:' + (i * 0.05) + 's', onclick: () => { cur = k; sessionStorage.setItem('home_tab', k); draw(); } },
-      h('span', { class: 'ri' }, String(t[0]).trim()), h('span', { class: 'rl' }, t[1]), n ? h('span', { class: 'cbadge' }, String(n)) : null); }));
-    const sec = SECTIONS.find(s => s[0] === cur);
-    body.replaceChildren(h('h3', { class: 'sec-t' }, sec[1]), h('div', { class: 'grid' }, sec[2].filter(Boolean)));
+    tabs.replaceChildren(...ordered().map(([k, t]) => { const n = k === 'families' ? lev : k === 'office' ? pend : 0; return h('button', { class: 'btn tabb ' + (cur === k ? '' : 'alt'), onclick: () => { cur = k; sessionStorage.setItem('home_tab', k); draw(); } }, t, n ? h('span', { class: 'cbadge' }, String(n)) : null); }));
+    body.replaceChildren(h('div', { class: 'grid' }, SECTIONS.find(s => s[0] === cur)[2].filter(Boolean)));
   };
-  sortable(tabs, '.rail-item', () => { order = [...tabs.querySelectorAll('.rail-item')].map(b => b.dataset.k); try { localStorage.setItem('chhipa_rail', JSON.stringify(order)); } catch {} });
   draw();
   const ann = h('div');
   { const t = new Date().toISOString().slice(0, 10); sb.from('announcements').select('title,body,pinned').lte('starts_on', t).or('ends_on.is.null,ends_on.gte.' + t).order('pinned', { ascending: false }).order('starts_on', { ascending: false }).limit(3).then(({ data }) => { if (data && data.length) ann.replaceChildren(...data.map(a => h('a', { href: '#announce', class: 'card ann' }, h('b', {}, (a.pinned ? '📌 ' : '📣 ') + a.title), a.body ? h('div', { class: 'muted' }, a.body.length > 120 ? a.body.slice(0, 120) + '…' : a.body) : null))); }); }
@@ -77,7 +59,8 @@ export async function render(main) {
     h('h2', {}, hi('Welcome', 'स्वागत है'), ', ' + p.full_name),
     h('div', { class: 'card' }, h('input', { type: 'search', placeholder: 'Search name, ID, mobile… · खोजें', onfocus: () => (location.hash = 'registry') })),
     p.photo ? [] : h('a', { href: '#profile', class: 'card photo-nag' }, '📷 Please add your photo — it is printed on your ID card. Tap here.'),
-    installCard() || [], ann, sup ? bk : [], chk, dashboard(p, lev, pend),
-    SECTIONS.length > 1 ? tabs : [], body,
+    installCard() || [], ann, sup ? bk : [], chk,
+    h('section', { class: 'panel' }, h('div', { class: 'panel-h' }, h('h3', {}, '📊 ', hi('Dashboard', 'डैशबोर्ड')), h('a', { class: 'plink', href: '#dashboard' }, 'View full dashboard →')), dashboardBlock(lev, pend, false)),
+    h('section', { class: 'panel' }, h('div', { class: 'panel-h' }, h('h3', {}, '🗂 ', hi('Categories', 'श्रेणियाँ'))), SECTIONS.length > 1 ? tabs : [], body),
     h('p', { class: 'muted', style: 'text-align:center;font-size:12px;margin-top:18px' }, 'Chhipa One · ' + APP_VERSION));
 }

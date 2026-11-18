@@ -9,7 +9,7 @@ export async function render(main) {
   const draw = () => main.replaceChildren(
     h('h2', {}, '⚙️ ', hi('App Settings', 'ऐप सेटिंग')), h('p', { class: 'muted s' }, 'Saved on this phone / computer. Each person can choose their own look.'),
     h('div', { class: 'card' }, h('h3', { style: 'margin-top:0' }, '🎨 Theme · थीम'),
-      h('div', { class: 'themes' }, Object.entries(THEMES).map(([k, t]) => h('button', { class: 'theme' + (s.theme === k ? ' on' : ''), onclick: () => set('theme', k), style: `background:linear-gradient(135deg,${t.c1},${t.c2} 60%,${t.c3})` }, h('span', {}, t.n))))),
+      h('div', { class: 'themes' }, Object.entries(THEMES).map(([k, t]) => h('button', { class: 'theme' + (s.theme === k ? ' on' : ''), onclick: () => set('theme', k), style: `background:${t.card};color:${t.tx};--sw:${t.acc};--sg:${t.gold}` }, h('i', { class: 'sw' }), h('span', {}, t.n))))),
     h('div', { class: 'card' }, h('h3', { style: 'margin-top:0' }, '🔤 Font · फ़ॉन्ट'), chips(FONTS, 'font', v => v[0]),
       h('label', {}, 'Text size · ' + s.size + ' px'), h('input', { type: 'range', min: 14, max: 20, step: 1, value: s.size, oninput: e => { s = { ...s, size: +e.target.value }; saveSettings(s); e.target.previousSibling.textContent = 'Text size · ' + s.size + ' px'; } })),
     h('div', { class: 'card' }, h('h3', { style: 'margin-top:0' }, '🔘 Buttons · बटन'), h('label', {}, 'Style'), chips(BSTYLES, 'bstyle', v => v), h('label', {}, 'Animation'), chips(BANIMS, 'banim', v => v),

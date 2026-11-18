@@ -5,6 +5,7 @@ applyLang();
 import { brand, loadBrand, logoImg, brandName, brandSub } from './brand.js';
 import { applySettings, syncSocietyLook } from './settings.js';
 import { pullToRefresh } from './ui.js';
+import { openDrawer } from './nav.js';
 import { startDecorate } from './decorate.js';
 import { sb, h, hi, state, toast, ROLE_LABEL, loadOptions, myLocations } from './core.js';
 import { loadCustomFields } from './customfields.js';
@@ -43,6 +44,7 @@ const ROUTES = {
   myteam: () => import('./myteam.js'),
   profile: () => import('./profile.js'),
   appsettings: () => import('./appsettings.js'),
+  dashboard: () => import('./dashboard.js'),
   inbox: () => import('./inbox.js')
 };
 const root = document.getElementById('app');
@@ -81,6 +83,7 @@ async function render() {
   const main = h('main');
   root.replaceChildren(
     h('header', { class: 'bar' },
+      h('button', { class: 'burger', title: 'Menu', 'aria-label': 'Menu', onclick: openDrawer }, h('i'), h('i'), h('i')),
       route ? h('button', { onclick: () => (location.hash = '') }, '🏠 Home') : logoImg(40),
       route ? h('button', { class: 'backbtn', onclick: () => (history.length > 1 ? history.back() : (location.hash = '')) }, '← Back') : null,
       h('div', { class: 'ttl' }, h('h1', {}, 'Chhipa One'), brandSub() ? h('small', {}, brandSub().toUpperCase()) : null),
