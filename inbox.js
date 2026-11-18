@@ -1,6 +1,7 @@
 // Requests hub: password requests, agent access requests, photo approval queue
 import { sb, h, hi, toast, friendly, state } from './core.js';
 import { uploadPhotos } from './photo.js';
+import { emptyState } from './ui.js';
 
 export const genPassword = () => { const a = 'abcdefghjkmnpqrstuvwxyz', n = '23456789'; const r = s => s[crypto.getRandomValues(new Uint32Array(1))[0] % s.length]; return Array.from({ length: 5 }, () => r(a)).join('') + '@' + Array.from({ length: 3 }, () => r(n)).join('') + r(a).toUpperCase(); };
 export const pwShare = (name, email, pw, phone) => {
@@ -18,7 +19,7 @@ export async function resetFor(userId, name, email, box, after) {
 }
 
 export async function render(main) {
-  const box = h('div'), pw = h('div'), ac = h('div'), ph = h('div');
+  const box = h('div', { class: 'sheet' }), pw = h('div'), ac = h('div'), ph = h('div');
   main.append(h('h2', {}, '📥 ', hi('Requests', 'अनुरोध')), box, h('h3', {}, '🔑 Password requests'), pw, h('h3', {}, '🧑‍💼 Agent access requests'), ac, h('h3', {}, '📷 Photo approvals'), ph);
   const load = async () => {
     const [a, b, c] = await Promise.all([sb.rpc('pwd_requests_list'), sb.rpc('access_requests_list'), sb.from('members').select('id,full_name,member_code,photo_pending').not('photo_pending', 'is', null).limit(100)]);

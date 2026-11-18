@@ -1,6 +1,6 @@
 // App Settings: theme, font, text size, button style and animation (saved on this device)
-import { h, hi, toast } from './core.js';
-import { THEMES, FONTS, BSTYLES, BANIMS, DEFAULTS, getSettings, saveSettings } from './settings.js';
+import { h, hi, toast, state, friendly } from './core.js';
+import { THEMES, FONTS, BSTYLES, BANIMS, getSettings, saveSettings, useSocietyLook, saveSocietyLook, hasOwn, societyLook } from './settings.js';
 
 export async function render(main) {
   let s = getSettings();
@@ -16,6 +16,9 @@ export async function render(main) {
       h('div', { class: 'actions', style: 'margin-top:12px' }, h('button', { class: 'btn' }, 'Try me'), h('button', { class: 'btn alt' }, 'Try me too'))),
     h('div', { class: 'card' }, h('h3', { style: 'margin-top:0' }, '🪄 Cards & motion'), h('label', {}, 'Card corners'), chips({ soft: 'Rounded', sharp: 'Sharp' }, 'cards', v => v),
       h('label', {}, 'Page animations'), chips({ on: 'On', off: 'Off (faster)' }, 'motion', v => v)),
-    h('div', { class: 'actions' }, h('button', { class: 'btn alt', onclick: () => { s = { ...DEFAULTS }; saveSettings(s); toast('Back to default look'); draw(); } }, 'Reset')));
+    state.profile.role === 'super_admin' ? h('div', { class: 'card' }, h('h3', { style: 'margin-top:0' }, '🏛 Society default look'), h('p', { class: 'muted s' }, 'Everyone who has not chosen their own look sees the society default (also on the login page).'),
+      h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: async () => { const r = await saveSocietyLook(s); toast(r.error ? friendly(r.error) : 'Saved as the society default for everyone'); } }, 'Use this look for everyone'),
+        h('button', { class: 'btn alt', onclick: async () => { const r = await saveSocietyLook(null); toast(r.error ? friendly(r.error) : 'Society default cleared'); } }, 'Clear default'))) : null,
+    h('div', { class: 'actions' }, h('button', { class: 'btn alt', onclick: () => { useSocietyLook(); s = getSettings(); toast(Object.keys(societyLook()).length ? 'Using the society look' : 'Back to the standard look'); draw(); } }, 'Reset')));
   draw();
 }

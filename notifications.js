@@ -1,3 +1,4 @@
+import { swipeable } from './ui.js';
 import { sb, h, toast, friendly } from './core.js';
 
 const when = t => new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
@@ -10,7 +11,7 @@ export async function render(main) {
   const render2 = () => { main.replaceChildren(); render(main); };
   main.append(...[h('h2', {}, 'Notifications'), unread.length ? h('div', { class: 'actions' }, h('span'), all) : null,
     !(data || []).length ? h('p', { class: 'muted' }, 'No notifications yet.') : null,
-    (data || []).map(n => h('a', { class: 'card note' + (n.is_read ? '' : ' unread'), href: n.link || '#notifications',
+    (data || []).map(n => { const a = h('a', { class: 'card note' + (n.is_read ? '' : ' unread'), href: n.link || '#notifications',
       onclick: () => { if (!n.is_read) sb.rpc('notif_mark_read', { p_ids: [n.id] }); } },
-      h('b', {}, n.title), n.body ? h('div', { class: 'muted' }, n.body) : null, h('div', { class: 'muted', style: 'font-size:12px' }, when(n.created_at))))].flat().filter(Boolean));
+      h('b', {}, n.title), n.body ? h('div', { class: 'muted' }, n.body) : null, h('div', { class: 'muted', style: 'font-size:12px' }, when(n.created_at))); if (!n.is_read) swipeable(a, { label: '✓ Read', fn: async () => { await sb.rpc('notif_mark_read', { p_ids: [n.id] }); render2(); } }); return a; })].flat().filter(Boolean));
 }

@@ -19,7 +19,7 @@ function shareBox(name, email, role, phone) {
       h('button', { class: 'btn alt', onclick: () => { navigator.clipboard && navigator.clipboard.writeText(txt); toast('Invite text copied'); } }, 'Copy')));
 }
 export async function teamTab(c, locs) {
-  const wrap = h('div'), list = h('div'), form = h('div'), pwbox = h('div');
+  const wrap = h('div'), list = h('div'), form = h('div', { class: 'sheet' }), pwbox = h('div', { class: 'sheet' });
   const states = [...new Set(locs.map(l => l.state).filter(Boolean))];
   let rows = [], chan;
   const load = async () => {

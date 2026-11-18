@@ -23,6 +23,7 @@ export const hi = (en, hindi) => [h('span', { class: 'en' }, en), ' ', h('small'
 let tt;
 export function toast(msg) {
   const t = document.getElementById('toast');
+  if (/approved|congrat/i.test(msg)) import('./ui.js').then(m => m.confetti()).catch(() => {});
   t.textContent = msg; t.hidden = false; clearTimeout(tt); tt = setTimeout(() => (t.hidden = true), 3500);
 }
 export const friendly = e => (e && e.message) ? e.message.replace(/^.*?:\s*(?=No login|Only|You cannot)/, '') : 'Something went wrong';

@@ -25,7 +25,7 @@ export async function render(main) {
       h('button', { class: 'btn sm', onclick: () => pickStaffPhoto(p.user_id, d => img.replaceChildren(h('img', { src: d, alt: '' }))) }, '📷 ' + (m.photo ? 'Change photo' : 'Add photo')))),
     h('p', { class: 'muted s' }, 'Your photo is printed on your ID card.'),
     h('label', {}, 'Mobile (printed on your ID card)'), phone, h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: async () => { const { error } = await sb.rpc('staff_set_phone', { p_user: p.user_id, p_phone: phone.value }); toast(error ? friendly(error) : 'Saved'); } }, 'Save phone')),
-    h('a', { class: 'btn alt', href: '#staffcard/' + p.user_id, style: 'margin-top:10px;display:inline-block' }, '🪪 My ID card')),
+    h('a', { class: 'btn alt', href: '#staffcard/' + p.user_id, style: 'margin-top:10px' }, '🪪 My ID card')),
     h('div', { class: 'card' }, h('h3', { style: 'margin-top:0' }, hi('Change password', 'पासवर्ड बदलें')), h('label', {}, 'New password'), p1, h('label', {}, 'Confirm'), p2,
       h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: async () => {
         if (p1.value.length < 8) return toast('At least 8 characters'); if (p1.value !== p2.value) return toast('The two passwords do not match');

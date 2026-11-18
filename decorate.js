@@ -9,6 +9,7 @@ const HI = {
   'my id card': 'मेरा आईडी कार्ड', 'refresh': 'ताज़ा करें', 'apply': 'लागू करें', 'reset': 'रीसेट', 'yes': 'हाँ', 'no': 'नहीं', 'use': 'उपयोग', 'view': 'देखें', 'open': 'खोलें', 'new family': 'नया परिवार', 'import': 'आयात', 'export': 'निर्यात',
   'take backup now': 'अभी बैकअप लें', 'approve all': 'सभी स्वीकृत', 'mark all read': 'सब पढ़ा हुआ', 'full page': 'पूरा पेज', 'add location': 'स्थान जोड़ें', 'add family': 'परिवार जोड़ें', 'add person': 'व्यक्ति जोड़ें',
 };
+import { emptyState, pickKind } from './ui.js';
 const DEV = /[ऀ-ॿ]/;
 function decorate(el) {
   if (el.dataset.bi || el.querySelector('.hi,.bi')) return;
@@ -26,8 +27,16 @@ function decorate(el) {
   if (post) nodes.push(Object.assign(document.createElement('span'), { className: 'cnt', textContent: post }));
   el.replaceChildren(...nodes);
 }
+function enhance() {
+  document.querySelectorAll('p.muted,.card.muted,div.muted').forEach(el => {
+    if (el.dataset.emp || el.children.length || el.closest('.empty,.skl') || el.closest('header,nav')) return;
+    const t = el.textContent.trim();
+    if (/^(Loading|Preparing|Checking)/i.test(t)) { el.dataset.emp = '1'; el.classList.add('skl'); return; }
+    if (/^No\s/.test(t) && t.length < 120) { el.dataset.emp = '1'; const e = emptyState(t, pickKind(t)); if (el.matches('p')) el.replaceWith(e); else el.replaceChildren(e); }
+  });
+}
 let busy = false;
-function scan(root) { if (busy) return; busy = true; try { (root.querySelectorAll ? root : document).querySelectorAll('button.btn,a.btn').forEach(decorate); } finally { busy = false; } }
+function scan(root) { if (busy) return; busy = true; try { (root.querySelectorAll ? root : document).querySelectorAll('button.btn,a.btn').forEach(decorate); enhance(); } finally { busy = false; } }
 export function startDecorate() {
   scan(document);
   new MutationObserver(ms => { if (busy) return; for (const m of ms) { const t = m.target; const b = t.nodeType === 1 ? t.closest && t.closest('button.btn,a.btn') : t.parentElement && t.parentElement.closest('button.btn,a.btn'); if (b && b.dataset.bi && !b.querySelector('.ben') && m.type !== 'attributes') { delete b.dataset.bi; b.classList.remove('bi'); } } scan(document); }).observe(document.body, { childList: true, subtree: true, characterData: true });

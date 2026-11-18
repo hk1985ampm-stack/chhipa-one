@@ -3,7 +3,8 @@ import { CONFIG } from './config.js';
 import { lang, LANGS, setLang, nextLang, applyLang } from './i18n.js';
 applyLang();
 import { brand, loadBrand, logoImg, brandName, brandSub } from './brand.js';
-import { applySettings } from './settings.js';
+import { applySettings, syncSocietyLook } from './settings.js';
+import { pullToRefresh } from './ui.js';
 import { startDecorate } from './decorate.js';
 import { sb, h, hi, state, toast, ROLE_LABEL, loadOptions, myLocations } from './core.js';
 import { loadCustomFields } from './customfields.js';
@@ -90,7 +91,9 @@ async function render() {
     main,
     h('nav', { class: 'bnav noprint' }, [['', '🏠', 'Home', 'होम'], ['registry', '👨‍👩‍👧', 'Families', 'परिवार'], ...(state.profile.read_only ? [] : [['add', '➕', 'Add', 'जोड़ें']]), ['notifications', '🔔', 'Alerts', 'सूचना']].map(([r, i, t, hd]) =>
       h('a', { href: '#' + r, class: route === r ? 'on' : '' }, h('span', { class: 'ic' }, i), h('b', {}, hi(t, hd))))));
+  const sk = h('div', { class: 'skeleton' }, h('div', { class: 'skl', style: 'height:64px' }), h('div', { class: 'skl', style: 'height:120px' }), h('div', { class: 'skl', style: 'height:120px' })); main.append(sk);
   try { await mod.render(main, arg); } catch (e) { main.replaceChildren(h('p', { class: 'err' }, 'Could not load this page. ' + (e.message || ''))); }
+  finally { sk.remove(); }
 }
 
 // Remember the registry on this phone so it opens without internet.
@@ -132,5 +135,6 @@ sb.auth.onAuthStateChange((ev, session) => {
   curUid = uid; boot(session);
 });
 addEventListener('hashchange', () => { if (/^#register\//.test(location.hash)) return boot(null); state.profile && render(); });
-applySettings(); startDecorate();
+applySettings(); startDecorate(); syncSocietyLook();
+setTimeout(() => pullToRefresh(() => (typeof render === 'function' ? render() : location.reload())), 0);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
