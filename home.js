@@ -24,7 +24,7 @@ export async function render(main) {
     ['community', ['🤝 ', hi('Community', 'समुदाय')], [tile('#announce', 'Announcements', 'घोषणाएँ'), tile('#cevents', 'Events', 'कार्यक्रम'), tile('#meetings', 'Meetings', 'बैठक'), tile('#sevaks', 'Sevaks', 'सेवक')]],
     ...(appr ? [['office', ['🏢 ', hi('Office', 'कार्यालय')], [
       tile('#registry/pending', 'Pending Approvals', 'लंबित स्वीकृति', false, pend),
-      sup ? tile('#communities', 'Communities', 'समुदाय') : null, sup ? tile('#staff', 'Staff & Agents', 'स्टाफ / एजेंट') : null,
+      sup ? tile('#communities', 'Communities', 'समुदाय') : null, sup ? tile('#staff', 'Staff & Agents', 'स्टाफ / एजेंट') : tile('#myteam', 'My Team · assign', 'मेरी टीम'),
       tile('#activity', 'Agent Activity', 'एजेंट गतिविधि'), tile('#scan', 'Scan QR', 'क्यू आर स्कैन'), tile('#reglinks', 'Registration Links', 'पंजीकरण लिंक'), tile('#reminders', 'Birthdays & WhatsApp', 'रिमाइंडर'), (sup || p.can_export || ['location_admin'].includes(p.role)) ? tile('#print', 'Print Center', 'प्रिंट सेंटर') : null, tile('#excel', 'Excel Import / Export', 'एक्सेल'), tile('#tools', 'Duplicates & Bulk Edit', 'डुप्लिकेट / बल्क एडिट'), sup ? tile('#lists', 'Dropdown Lists', 'ड्रॉपडाउन सूची') : null, sup ? tile('#backup', 'Backup', 'बैकअप') : null, sup ? tile('#audit', 'Audit Log', 'ऑडिट लॉग') : null]]] : [])];
   let cur = sessionStorage.getItem('home_tab'); if (!SECTIONS.some(s => s[0] === cur)) cur = 'families';
   const body = h('div'), tabs = h('div', { class: 'chips' });

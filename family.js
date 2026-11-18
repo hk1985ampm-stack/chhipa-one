@@ -231,6 +231,7 @@ export async function render(main, id) {
   const hmobile = hm ? mobile(hm) : '';
   const photoBox = h('div', { class: 'ph' }, hm ? initials(hm.full_name) : '?');
   if (hm && hm.photo_path) photoUrl(hm.photo_path).then(u => { if (u) photoBox.replaceChildren(h('img', { src: u, alt: '' })); });
+  else if (hm && hm.photo_pending) photoBox.replaceChildren(h('img', { src: hm.photo_pending, alt: '' }));
   const heroCard = () => h('div', { class: 'hero' },
     h('div', { class: 'hero-top' }, h('div', { class: 'ph-wrap' }, photoBox, hm ? h('button', { class: 'ph-btn noprint', title: 'Change photo', onclick: () => pickPhoto(hm.id, reload) }, '📷') : null),
       h('div', { class: 'hero-txt' }, h('h2', {}, hm ? hm.full_name : 'Family'), h('div', { class: 'hero-id' }, fam.family_code || 'ID on approval', ' ', pill(fam.status)),
@@ -256,7 +257,6 @@ export async function render(main, id) {
       fam.status === 'rejected' && (ownOpen || isApprover()) ? h('button', { class: 'btn', onclick: async () => { const { error } = await sb.rpc('family_resubmit', { p_id: id }); error ? toast(friendly(error)) : (toast('Resubmitted for approval'), reload()); } }, '↻ Fix done · Resubmit') : null) : null,
     (isApprover() && !offline && !fam.removed_at && fam.status === 'approved') ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn alt', onclick: transfer }, '⇄ Transfer to another location'),
       h('button', { class: 'btn alt', onclick: allIds }, '🪪 All ID cards (this family)'), isStateOrSuper() ? h('button', { class: 'btn', onclick: duesPanel }, '💰 Dues & Donation') : null) : null,
-    canRemoveFam ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn bad', onclick: removeFam }, 'Remove family (wrong / test entry)')) : null,
     fam.removed_at ? h('div', { class: 'card dupwarn' }, h('b', {}, 'This family was removed.'), h('p', { class: 'muted' }, fam.removed_reason || ''), h('div', { class: 'actions-card' }, isApprover() ? h('button', { class: 'btn', onclick: () => run(sb.rpc('family_restore', { p_id: id }), 'Family restored') }, 'Restore family') : null, isSuper ? h('button', { class: 'btn bad', onclick: purgeFam }, 'Delete permanently') : null)) : null,
     headGone ? h('div', { class: 'card dupwarn' }, h('b', {}, 'The family head has passed away.'), h('p', { class: 'muted' }, 'Choose the new head (the wife is suggested).'), h('button', { class: 'btn', onclick: headForm }, 'Choose new head')) : null,
     actions, box,
@@ -275,5 +275,6 @@ export async function render(main, id) {
           gone ? h('button', { class: 'btn sm', onclick: () => run(sb.rpc('member_restore', { p_id: m.id }), 'Member restored') }, 'Restore') : null,
           gone && isSuper ? h('button', { class: 'btn sm bad', onclick: () => purgeMem(m) }, 'Delete permanently') : null) : null,
         menu(r)); }),
-    hs.data && hs.data.length ? h('div', {}, h('h3', {}, 'History · इतिहास'), h('div', { class: 'card list' }, hs.data.map(x => h('div', { class: 'item' }, h('span', {}, say(x)), h('span', { class: 'muted' }, x.event_date || ''))))) : null].filter(Boolean));
+    hs.data && hs.data.length ? h('div', {}, h('h3', {}, 'History · इतिहास'), h('div', { class: 'card list' }, hs.data.map(x => h('div', { class: 'item' }, h('span', {}, say(x)), h('span', { class: 'muted' }, x.event_date || ''))))) : null,
+    canRemoveFam ? h('div', { class: 'danger-zone noprint' }, h('p', { class: 'muted s' }, 'Danger zone — only for a wrong or test entry. You will be asked to confirm.'), h('button', { class: 'btn alt bad', onclick: removeFam }, 'Remove family (wrong / test entry)')) : null].filter(Boolean));
 }

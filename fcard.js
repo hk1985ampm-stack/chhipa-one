@@ -27,6 +27,7 @@ export async function famParts(fam, rows, dues = null) {
   const B = brand.data || {}, head = rows.find(r => r.relation === 'head'), hm = head && head.members; let logo = null, photo = null, stamp = null;
   const lg = logoUrl(B.logo_path); if (lg) { try { logo = await dataUrl(lg); } catch {} }
   if (hm && hm.photo_path) { try { const u = await photoUrl(hm.photo_path); if (u) photo = await dataUrl(u); } catch {} }
+  if (hm && !photo && hm.photo_pending) photo = hm.photo_pending;
   try { stamp = await dataUrl('stamp.png'); } catch {}
   const code = fam.family_code || 'PENDING';
   const officers = await officersFor(fam.location_id || (fam.locations && fam.locations.id));

@@ -49,6 +49,7 @@ export function framedPage(cardS, { L, officers, title, m, k = 1.9, cw = CW, ch 
 }
 
 // Shared screen: format switch (full page / card only), preview, Print, Save PDF, WhatsApp-free
+export const loadingNote = main => main.append(h('p', { class: 'muted ld', style: 'text-align:center;padding:40px 10px' }, 'Preparing the card…'));
 export async function cardPageView(main, { heading, backHref, backText, build, officers, title, fileName, logWhat, note, extra }) {
   const m = await measurer(), L = await prep(getCfg());
   const holder = h('div', { class: 'idc-wrap' }), style = h('style'), fmt = h('select', {}, h('option', { value: 'full' }, 'Full page · header + office bearers + card (A4)'), h('option', { value: 'card' }, 'Card only · credit-card size (85.6 × 54 mm)'));
@@ -59,6 +60,7 @@ export async function cardPageView(main, { heading, backHref, backText, build, o
   const pdf = async () => { try { const d = new window.jspdf.jsPDF({ unit: 'mm', format: fmt.value === 'card' ? [CW, CH] : 'a4', orientation: fmt.value === 'card' ? 'landscape' : 'portrait' }); drawPdf(d, S); d.save(fileName + '.pdf'); logAct('DOWNLOAD', logWhat); } catch (e) { toast(friendly(e)); } };
   const print = () => { logAct('PRINT', logWhat); window.print(); };
   fmt.addEventListener('change', draw);
+  main.querySelectorAll('.ld').forEach(e => e.remove());
   main.append(h('div', { class: 'backlink noprint' }, h('a', { href: backHref }, backText || '← Back')), h('h2', { class: 'noprint' }, heading), holder,
     h('div', { class: 'card noprint' }, h('label', {}, 'Print format'), fmt, extra || null, h('div', { class: 'actions' }, h('button', { class: 'btn alt', onclick: print }, '🖨 Print'), h('button', { class: 'btn', onclick: pdf }, '⬇ Save PDF'))), style);
   addEventListener('resize', fit); await draw(); setTimeout(fit, 120);

@@ -36,7 +36,8 @@ const ROUTES = {
   cevents: () => import('./cevents.js'),
   reglinks: () => import('./reglinks.js'),
   idcard: () => import('./idcard.js'),
-  staffcard: () => import('./staffcard.js')
+  staffcard: () => import('./staffcard.js'),
+  myteam: () => import('./myteam.js')
 };
 const root = document.getElementById('app');
 
@@ -98,7 +99,8 @@ async function render() {
   const main = h('main');
   root.replaceChildren(
     h('header', { class: 'bar' },
-      route ? h('button', { onclick: () => (location.hash = '') }, '← Home') : logoImg(40),
+      route ? h('button', { onclick: () => (location.hash = '') }, '🏠 Home') : logoImg(40),
+      route ? h('button', { class: 'backbtn', onclick: () => (history.length > 1 ? history.back() : (location.hash = '')) }, '← Back') : null,
       h('div', { class: 'ttl' }, h('h1', {}, 'Chhipa One'), brandSub() ? h('small', {}, brandSub().toUpperCase()) : null),
       h('span', { class: 'role' }, ROLE_LABEL[state.profile.role] + (state.profile.read_only ? ' · View only' : '')),
       h('button', { onclick: () => { setLang(nextLang()); render(); }, title: 'Language' }, LANGS.find(l => l[0] === lang.v)[1]),

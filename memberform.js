@@ -73,7 +73,7 @@ export function memberForm(init = {}, { fixedRelation = null, ctx = null } = {})
     if (MARRIED.includes(r)) set('mar', mar, 'Married'); else if (KIDS.includes(r)) set('mar', mar, 'Unmarried');
     if (ctx && ctx.head && (r === 'son' || r === 'daughter')) {
       if (ctx.head.gender === 'male') { set('father', father, ctx.head.name); if (ctx.spouse) set('mother', mother, ctx.spouse.name); }
-      else if (ctx.head.gender === 'female') set('mother', mother, ctx.head.name);
+      else if (ctx.head.gender === 'female') { set('mother', mother, ctx.head.name); if (ctx.spouse) set('father', father, ctx.spouse.name); }
     }
     if (ctx && ctx.head && (r === 'brother' || r === 'sister')) set('father', father, ctx.head.father_name);
     drawMto(r);

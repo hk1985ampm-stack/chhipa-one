@@ -13,9 +13,10 @@ const dash = v => v || '—';
 
 // View & print only: an exact on-screen copy of the Family Card PDF (same layout, A4 landscape). What you see is what prints.
 export async function render(main, id) {
+  main.append(h('p', { class: 'muted ld', style: 'text-align:center;padding:40px 10px' }, 'Preparing the card…'));
   const [f, ms] = await Promise.all([
     sb.from('families').select('*, locations(code,city,state)').eq('id', id).maybeSingle(),
-    sb.from('family_memberships').select('relation,is_active,created_at, members(id,member_code,full_name,father_name,gender,dob,birth_year_est,status,education,occupation,marital_status,photo_path, member_contacts(mobile))').eq('family_id', id).eq('is_active', true)]);
+    sb.from('family_memberships').select('relation,is_active,created_at, members(id,member_code,full_name,father_name,gender,dob,birth_year_est,status,education,occupation,marital_status,photo_path,photo_pending, member_contacts(mobile))').eq('family_id', id).eq('is_active', true)]);
   if (f.error || ms.error) throw (f.error || ms.error);
   if (!f.data) return main.append(h('p', { class: 'err' }, 'Family not found, or you do not have access.'));
   const fam = f.data, B = brand.data || {};
@@ -28,6 +29,7 @@ export async function render(main, id) {
   const wraps = pages.map(S => { const c = toHtml(S, FW, FH); return h('div', { class: 'fpw' }, c); }); holder.append(...wraps);
   const fit = () => { const s = Math.min(1.6, ((main.clientWidth || innerWidth) - 4) / (FW * mm)); wraps.forEach(w => { w.firstChild.style.transform = 'scale(' + s + ')'; w.firstChild.style.transformOrigin = 'top left'; w.style.width = (FW * mm * s) + 'px'; w.style.height = (FH * mm * s) + 'px'; }); };
   const save = async () => { const d = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }); pages.forEach((S, i) => { if (i) d.addPage(); drawPdf(d, S); }); logAct('DOWNLOAD', 'Family card ' + (fam.family_code || '')); d.save('FamilyCard_' + ((hm ? hm.full_name : 'family').replace(/[^\w\s-]/g, '').replace(/\s+/g, '_').slice(0, 40)) + '.pdf'); };
+  main.querySelectorAll('.ld').forEach(e => e.remove());
   main.append(...[
     h('style', {}, '@page{size:A4 landscape;margin:0}'),
     h('div', { class: 'noprint actions' }, h('a', { class: 'btn alt', href: '#family/' + id }, '← Back'),

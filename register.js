@@ -23,6 +23,14 @@ export async function publicRegister(root, token) {
       g = sel(GENDERS), d = h('input', { type: 'date', max: new Date().toISOString().slice(0, 10) }), age = h('input', { type: 'number', inputmode: 'numeric', min: 0, max: 120, placeholder: 'Age (if date of birth not known)' }),
       m = h('input', { type: 'tel', inputmode: 'numeric', maxlength: 10, placeholder: 'Mobile' }), fa = h('input', { placeholder: "Father's name" }), ed = sel(EDUCATION), oc = sel(OCCUPATIONS), ma = sel(MARITAL), bg = sel(BLOOD, 'Blood group'),
       ph = h('input', { type: 'file', accept: 'image/*' }), pv = h('img', { alt: '', style: 'display:none;width:72px;height:72px;object-fit:cover;border-radius:10px;margin-top:6px' }); let photo = '';
+    const touched = new Set(); [g, fa, ma].forEach((x, i) => x.addEventListener('input', () => touched.add(i)));
+    const GEN = { son: 'male', daughter: 'female', grandson: 'male', granddaughter: 'female', father: 'male', mother: 'female', brother: 'male', sister: 'female', 'daughter-in-law': 'female', 'son-in-law': 'male' };
+    const autofill = () => { const rel = r.value, all = [...mem.children].map(e => e.info && e.info()).filter(Boolean), head = all.find(x => x.relation === 'head'), sp = all.find(x => x.relation === 'spouse');
+      let gen = GEN[rel]; if (rel === 'spouse' && head && head.gender) gen = head.gender === 'male' ? 'female' : head.gender === 'female' ? 'male' : ''; if (gen && !touched.has(0)) g.value = gen;
+      if (['son', 'daughter'].includes(rel) && head && !touched.has(1)) { if (head.gender === 'male' && head.name) fa.value = head.name; else if (head.gender === 'female' && sp && sp.name) fa.value = sp.name; }
+      if (['spouse', 'daughter-in-law', 'son-in-law'].includes(rel) && !touched.has(2)) ma.value = 'Married'; if (['son', 'daughter', 'grandson', 'granddaughter'].includes(rel) && !touched.has(2)) ma.value = 'Unmarried'; };
+    r.addEventListener('change', autofill); setTimeout(autofill, 0);
+    if (first) [g, n].forEach(x => x.addEventListener('input', () => [...mem.children].forEach(e => e.refill && e.refill())));
     d.addEventListener('input', () => { if (d.value) { age.value = calcAge(d.value); age.readOnly = true; } else { age.readOnly = false; } age.classList.toggle('auto', age.readOnly); });
     ph.addEventListener('change', async () => { photo = ''; pv.style.display = 'none'; if (!ph.files[0]) return; try { photo = await shrink(ph.files[0]); pv.src = photo; pv.style.display = 'block'; } catch (e) { err.textContent = e.message; } });
     const el = h('div', { class: 'card' }, h('div', { class: 'rowhead' }, h('b', {}, first ? 'Head of family' : 'Family member'), first ? null : h('button', { type: 'button', class: 'btn alt bad sm', onclick: () => el.remove() }, 'Remove')),
@@ -31,7 +39,7 @@ export async function publicRegister(root, token) {
       h('div', { class: 'row' }, h('div', {}, h('label', {}, 'Mobile'), m), h('div', {}, h('label', {}, 'Blood group'), bg)), h('label', {}, "Father's name"), fa,
       h('div', { class: 'row' }, h('div', {}, h('label', {}, 'Education'), ed), h('div', {}, h('label', {}, 'Occupation'), oc)), h('label', {}, 'Marital status'), ma,
       h('label', {}, 'Photo (optional)'), ph, pv);
-    el.get = () => ({ name: n.value.trim(), relation: r.value, gender: g.value, dob: d.value || undefined, age: !d.value && age.value ? age.value : undefined, mobile: m.value.replace(/\D/g, '') || undefined, blood_group: bg.value || undefined, father_name: fa.value.trim() || undefined, education: ed.value || undefined, occupation: oc.value || undefined, marital_status: ma.value || undefined, photo: photo || undefined }); return el;
+    el.refill = autofill; el.info = () => ({ relation: r.value, name: n.value.trim(), gender: g.value }); el.get = () => ({ name: n.value.trim(), relation: r.value, gender: g.value, dob: d.value || undefined, age: !d.value && age.value ? age.value : undefined, mobile: m.value.replace(/\D/g, '') || undefined, blood_group: bg.value || undefined, father_name: fa.value.trim() || undefined, education: ed.value || undefined, occupation: oc.value || undefined, marital_status: ma.value || undefined, photo: photo || undefined }); return el;
   };
   mem.append(rowFor(true));
   const done = () => shell(h('div', { class: 'card' }, h('h2', {}, '✔ Thank you'), h('p', {}, 'Your family details have been sent to the community office. They will review and approve them; your Family ID is issued after approval.')));

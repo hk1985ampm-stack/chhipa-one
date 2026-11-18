@@ -69,6 +69,7 @@ export async function cardParts(m, rel, fam, withPhoto = true, headName = '') {
   const B = brand.data || {}; let logo = null, photo = null;
   const lg = logoUrl(B.logo_path); if (lg) { try { logo = await dataUrl(lg); } catch {} }
   if (withPhoto && m.photo_path) { try { const u = await photoUrl(m.photo_path); if (u) photo = await dataUrl(u); } catch {} }
+  if (withPhoto && !photo && m.photo_pending) photo = m.photo_pending;   // photo sent with the self-registration form, not yet saved
   return { logo, photo, qr: qrPng('CJBWS|MEMBER|' + (m.member_code || '') + '|ID:' + (fam.family_code || '')), initials: m.full_name.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase(), name: m.full_name, mcode: m.member_code, fcode: fam.family_code,
     rel: REL_LABELS[rel] || rel, relToHead: rel === 'head' ? 'Head of Family' : (REL_LABELS[rel] || rel), headName: headName || (rel === 'head' ? m.full_name : ''), gender: m.gender ? m.gender[0].toUpperCase() + m.gender.slice(1) : '', age: m.dob || m.birth_year_est ? ageText(m).replace('~', '') : '', city: fam.locations && fam.locations.city, mobile: mobOf(m), blood: m.blood_group || '' };
 }
@@ -76,7 +77,7 @@ export async function measurer() { await loadPdfLibs(); const doc = new window.j
     fit: (t, size, bold, w) => { doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(size); t = String(t); if (doc.getTextWidth(t) <= w) return t; while (t.length > 1 && doc.getTextWidth(t + '…') > w) t = t.slice(0, -1); return t + '…'; } }; }
 
 export async function renderClassic(main, id) {
-  const { data, error } = await sb.from('members').select('id,member_code,full_name,photo_path,status,gender,dob,birth_year_est,blood_group, member_contacts(mobile), family_memberships(relation,is_active, families(id,family_code,locations(city)))').eq('id', id).maybeSingle();
+  const { data, error } = await sb.from('members').select('id,member_code,full_name,photo_path,photo_pending,status,gender,dob,birth_year_est,blood_group, member_contacts(mobile), family_memberships(relation,is_active, families(id,family_code,locations(city)))').eq('id', id).maybeSingle();
   if (error) throw error; if (!data) return main.append(h('p', { class: 'err' }, 'Member not found, or you do not have access.'));
   const fm = (data.family_memberships || []).find(x => x.is_active && x.families) || (data.family_memberships || [])[0]; if (!fm) return main.append(h('p', { class: 'err' }, 'This member is not in a family yet.'));
   const withPh = h('input', { type: 'checkbox', checked: true }), holder = h('div', { class: 'idc-wrap' }), note = h('p', { class: 'muted s noprint' }, 'Credit-card size (85.6 × 54 mm). The screen card and the PDF use the same layout.');
@@ -93,7 +94,8 @@ export async function renderClassic(main, id) {
 
 // Framed print format: society header, State/Location admin details, the ID card, footer
 export async function render(main, id) {
-  const { data, error } = await sb.from('members').select('id,member_code,full_name,photo_path,status,gender,dob,birth_year_est,blood_group, member_contacts(mobile), family_memberships(relation,is_active, families(id,family_code,location_id,locations(city)))').eq('id', id).maybeSingle();
+  main.append(h('p', { class: 'muted ld', style: 'text-align:center;padding:40px 10px' }, 'Preparing the card…'));
+  const { data, error } = await sb.from('members').select('id,member_code,full_name,photo_path,photo_pending,status,gender,dob,birth_year_est,blood_group, member_contacts(mobile), family_memberships(relation,is_active, families(id,family_code,location_id,locations(city)))').eq('id', id).maybeSingle();
   if (error) throw error; if (!data) return main.append(h('p', { class: 'err' }, 'Member not found, or you do not have access.'));
   const fm = (data.family_memberships || []).find(x => x.is_active && x.families) || (data.family_memberships || [])[0]; if (!fm) return main.append(h('p', { class: 'err' }, 'This member is not in a family yet.'));
   const hq = await sb.from('family_memberships').select('members(full_name)').eq('family_id', fm.families.id).eq('relation', 'head').eq('is_active', true).maybeSingle(), headName = (hq.data && hq.data.members && hq.data.members.full_name) || '';

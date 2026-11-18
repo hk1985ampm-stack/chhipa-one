@@ -1,10 +1,21 @@
 // Community Team: owners, state admins, location admins and agents of one community. Changes show instantly (Supabase Realtime + refresh).
-import { sb, h, hi, toast, friendly, state } from './core.js';
+import { sb, h, hi, toast, friendly, state, isStateOrSuper } from './core.js';
 
 export const LEVELS = [['owner', 'Owner (Super Admin)', 'मालिक'], ['state_admin', 'State Admin', 'राज्य एडमिन'], ['location_admin', 'Location Admin', 'लोकेशन एडमिन'], ['agent', 'Agent', 'एजेंट']];
+const mayLevel = v => state.profile.role === 'super_admin' || (isStateOrSuper() ? ['location_admin', 'agent'].includes(v) : v === 'agent');
 const LV = Object.fromEntries(LEVELS.map(l => [l[0], l[1]]));
 const DESIGNATIONS = ['President', 'Vice President', 'Secretary', 'Joint Secretary', 'Treasurer', 'Trustee', 'Member', 'Coordinator', 'Volunteer'];
 
+// Invite by WhatsApp / e-mail / copy: no automatic e-mail is needed, the person simply opens the app link and creates an account with the invited e-mail
+const appLink = () => location.origin + location.pathname;
+const inviteText = (name, email, role) => `Assalamu Alaikum ${name},\nYou are invited as ${role} on Chhipa One (CJBWS community app).\n1. Open: ${appLink()}\n2. Tap "Create account" and use this e-mail: ${email}\n3. You get your access automatically.`;
+function shareBox(name, email, role, phone) {
+  const txt = inviteText(name, email, role), ph = (phone || '').replace(/\D/g, '');
+  return h('div', { class: 'card' }, h('h3', { style: 'margin-top:0' }, 'Send the invite to ' + name), h('pre', { class: 'muted s', style: 'white-space:pre-wrap;margin:0 0 8px' }, txt),
+    h('div', { class: 'actions' }, h('a', { class: 'btn', target: '_blank', rel: 'noopener', href: 'https://wa.me/' + (ph.length === 10 ? '91' + ph : ph) + '?text=' + encodeURIComponent(txt) }, 'WhatsApp'),
+      h('a', { class: 'btn alt', href: 'mailto:' + email + '?subject=' + encodeURIComponent('Invitation: Chhipa One') + '&body=' + encodeURIComponent(txt) }, 'Email'),
+      h('button', { class: 'btn alt', onclick: () => { navigator.clipboard && navigator.clipboard.writeText(txt); toast('Invite text copied'); } }, 'Copy')));
+}
 export async function teamTab(c, locs) {
   const wrap = h('div'), list = h('div'), form = h('div');
   const states = [...new Set(locs.map(l => l.state).filter(Boolean))];
@@ -21,7 +32,7 @@ export async function teamTab(c, locs) {
         h('div', { class: 'muted s' }, [p.email, p.designation, p.admin_code ? 'ID ' + p.admin_code : null, p.phone ? 'Ph ' + p.phone : null].filter(Boolean).join(' · ')),
         h('div', { class: 'muted s' }, [LV[p.level], p.level === 'state_admin' ? p.scope_state : null, p.level === 'owner' ? 'all locations' : (p.location_codes || []).join(', ') || null].filter(Boolean).join(' · '))),
       h('div', { class: 'chips' },
-        p.invited ? h('span', { class: 'muted s' }, 'Waiting for sign-up') : null,
+        p.invited ? h('button', { class: 'btn sm', onclick: () => { form.replaceChildren(shareBox(p.full_name, p.email, LV[p.level], '')); form.scrollIntoView({ behavior: 'smooth' }); } }, '📤 Send invite') : null,
         h('button', { class: 'btn alt sm', onclick: () => edit(p) }, '✏️ Role'),
         !p.invited && p.status === 'active' ? h('a', { class: 'btn alt sm', href: '#staffcard/' + p.user_id }, '🪪 ID Card') : null,
         !p.invited && p.user_id !== state.profile.user_id ? h('button', { class: 'btn alt sm', onclick: () => act(() => sb.rpc('staff_set_status', { p_user: p.user_id, p_status: p.status === 'active' ? 'suspended' : 'active' }), 'Updated') }, p.status === 'active' ? 'Suspend' : 'Activate') : null,
@@ -30,7 +41,7 @@ export async function teamTab(c, locs) {
   const edit = p => {
     const email = h('input', { type: 'email', value: p ? p.email : '', placeholder: 'person@example.com', disabled: !!p });
     const name = h('input', { value: p ? p.full_name : '', placeholder: 'Full name' }), phone = h('input', { type: 'tel', inputmode: 'numeric', maxlength: 10, value: p && p.phone || '', placeholder: '10-digit phone (shown on printed cards)' });
-    const lvl = h('select', {}, LEVELS.map(([v, t]) => h('option', { value: v, selected: p ? p.level === v : v === 'agent' }, t)));
+    const lvl = h('select', {}, LEVELS.filter(l => mayLevel(l[0]) || (p && p.level === l[0])).map(([v, t]) => h('option', { value: v, selected: p ? p.level === v : v === 'agent' }, t)));
     const des = h('input', { value: p ? p.designation || '' : '', list: 'desg', placeholder: 'e.g. President, Secretary' }), dl = h('datalist', { id: 'desg' }, DESIGNATIONS.map(d => h('option', { value: d })));
     const st = h('select', {}, states.map(s => h('option', { value: s, selected: p && p.scope_state === s }, s)));
     const boxes = locs.filter(l => l.status === 'active').map(l => ({ l, el: h('input', { type: 'checkbox', checked: !!(p && (p.location_codes || []).includes(l.code)) }) }));
@@ -39,15 +50,15 @@ export async function teamTab(c, locs) {
     const sync = () => { stBox.hidden = lvl.value !== 'state_admin'; locBox.hidden = !['location_admin', 'agent'].includes(lvl.value); }; lvl.addEventListener('change', sync); sync();
     const chk = (el, t) => h('label', { class: 'chk' }, el, t), err = h('p', { class: 'err' });
     form.replaceChildren(h('div', { class: 'card' }, h('h3', {}, p ? 'Change role · ' + p.full_name : 'Add team member'),
-      p ? null : h('p', { class: 'muted s' }, 'If this email already has a login the person is added at once. Otherwise they are invited: ask them to open the app, tap “Create account” with this email, and they get this role automatically.'),
-      h('label', {}, 'Email *'), email, h('label', {}, 'Full name *'), name, h('label', {}, 'Role *'), lvl, h('label', {}, 'Designation (office-bearer title)'), des, dl, p && p.user_id ? h('div', {}, h('label', {}, 'Phone (printed on cards)'), phone) : null, stBox, locBox,
+      p ? null : h('p', { class: 'muted s' }, 'If this email already has a login the person is added at once. Otherwise you can send the invite by WhatsApp, e-mail or copy: they open the app, tap “Create account” with this e-mail, and get this role automatically.'),
+      h('label', {}, 'Email *'), email, h('label', {}, 'Full name *'), name, h('label', {}, 'Role *'), lvl, h('label', {}, 'Designation (office-bearer title)'), des, dl, h('div', {}, h('label', {}, p && p.user_id ? 'Phone (printed on cards)' : 'WhatsApp / phone (for sending the invite)'), phone), stBox, locBox,
       h('label', {}, 'Special permissions (leave off unless needed)'), chk(fAll, 'Can VIEW all families (read only)'), chk(fSens, 'Can view sensitive data'), chk(fExp, 'Can export to Excel'), err,
       h('div', { class: 'actions' }, h('button', { class: 'btn alt', onclick: () => form.replaceChildren() }, 'Cancel'), h('button', { class: 'btn', onclick: async ev => {
         ev.target.disabled = true;
         const { data, error } = await sb.rpc('team_save', { p_email: email.value.trim(), p_name: name.value.trim(), p_level: lvl.value, p_designation: des.value.trim(), p_state: st.value || null, p_locations: boxes.filter(b => b.el.checked).map(b => b.l.id), p_community: c.id, p_view_all: fAll.checked, p_sensitive: fSens.checked, p_export: fExp.checked });
         if (error) { ev.target.disabled = false; return (err.textContent = friendly(error)); }
         if (p && p.user_id) { const ph = await sb.rpc('staff_set_phone', { p_user: p.user_id, p_phone: phone.value }); if (ph.error) return (ev.target.disabled = false, err.textContent = friendly(ph.error)); }
-        form.replaceChildren(); toast(data.status === 'invited' ? 'Invited — they get this role when they create their account' : 'Saved'); load(); } }, 'Save'))));
+        load(); if (data.status === 'invited') { toast('Invite saved — now send it'); form.replaceChildren(shareBox(name.value.trim(), email.value.trim().toLowerCase(), LV[lvl.value], phone.value)); } else { form.replaceChildren(); toast('Saved'); } } }, 'Save'))));
     form.scrollIntoView({ behavior: 'smooth' });
   };
   wrap.append(h('div', { class: 'rowhead' }, h('h3', { style: 'margin:0' }, hi('Team', 'टीम')), h('button', { class: 'btn sm', onclick: () => edit(null) }, '+ Add member')), form, list);

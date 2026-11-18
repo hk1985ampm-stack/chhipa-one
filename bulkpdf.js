@@ -16,7 +16,7 @@ const today = () => new Date().toLocaleDateString('en-IN');
 export async function fetchFamilies(locationId, onProgress) {
   const out = [];
   for (let from = 0; ; from += 150) {
-    let q = sb.from('families').select('id,family_code,address,gotra,family_type,taluka,pincode,phone,locations(code,city), family_memberships(relation,is_active, members(id,member_code,full_name,gender,dob,birth_year_est,status,education,occupation,marital_status,blood_group,photo_path,removed_at, member_contacts(mobile)))')
+    let q = sb.from('families').select('id,family_code,address,gotra,family_type,taluka,pincode,phone,locations(code,city), family_memberships(relation,is_active, members(id,member_code,full_name,gender,dob,birth_year_est,status,education,occupation,marital_status,blood_group,photo_path,photo_pending,removed_at, member_contacts(mobile)))')
       .eq('status', 'approved').is('removed_at', null).order('family_code').range(from, from + 149);
     if (locationId) q = q.eq('location_id', locationId);
     const { data, error } = await q; if (error) throw error;

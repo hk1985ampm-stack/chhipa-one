@@ -17,7 +17,7 @@ export async function render(main) {
   if (!(isApprover() || p.can_export)) return main.append(h('div', { class: 'card' }, 'Print Center is for admins or users with export permission.'));
   const locs = await myLocations(), loc = h('select', {}, h('option', { value: '' }, 'All locations'), locs.map(l => h('option', { value: l.id }, l.city)));
   const cfg = getCfg(), B = brand.data || {};
-  const photos = h('input', { type: 'checkbox' }), withDues = h('input', { type: 'checkbox' });
+  const photos = h('input', { type: 'checkbox', checked: true }), withDues = h('input', { type: 'checkbox' });
   const msg = h('p', { class: 'muted' }); let busy = false;
 
   // ---- letterhead & theme (remembered on this device)

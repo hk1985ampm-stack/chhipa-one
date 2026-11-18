@@ -24,6 +24,7 @@ function staffSpec(c, m, logo, qr) {
 }
 
 export async function render(main, id) {
+  main.append(h('p', { class: 'muted ld', style: 'text-align:center;padding:40px 10px' }, 'Preparing the card…'));
   await load('qrcode.min.js');
   const { data, error } = await sb.rpc('staff_card', { p_user: id }); if (error) throw error;
   if (!data) return main.append(h('p', { class: 'err' }, 'Not found, or you do not have access.'));
