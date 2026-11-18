@@ -1,5 +1,6 @@
 import { sb, h, hi, toast, friendly, pill, ROLE_LABEL } from './core.js';
 import { brandingTab } from './branding.js';
+import { teamTab } from './team.js';
 
 const stat = (n, t) => h('div', { class: 'st' }, h('b', {}, String(n)), h('span', {}, t));
 const stPill = s => h('span', { class: 'pill ' + (s === 'active' ? 'approved' : s === 'suspended' ? 'pending' : 'rejected') }, s);
@@ -33,10 +34,10 @@ async function detail(main, id) {
   if (ov.error || locs.error || ppl.error) throw (ov.error || locs.error || ppl.error);
   const c = ov.data.find(x => x.id === id); if (!c) return main.append(h('p', { class: 'err' }, 'Community not found.'));
   const reload = () => { main.replaceChildren(); detail(main, id); };
-  let tab = sessionStorage.getItem('comm_tab') || 'locations';
+  let tab = sessionStorage.getItem('comm_tab') || 'locations'; if (!['locations', 'team', 'branding'].includes(tab)) tab = 'locations';
   const body = h('div');
   const tabs = h('div', { class: 'chips' });
-  const TABS = [['locations', 'Locations'], ['people', 'Admins & Agents'], ['families', 'Families'], ['members', 'Members'], ['branding', 'Logo & Label']];
+  const TABS = [['locations', 'Locations'], ['team', 'Team'], ['branding', 'Logo & Label']];
   const setStatus = async s => { if (s !== 'active' && !confirm('Deactivate this community? Its users will lose access until you reactivate it. No data is deleted.')) return;
     const { error } = await sb.rpc('community_set_status', { p_id: id, p_status: s }); error ? toast(friendly(error)) : (toast('Updated'), reload()); };
 
@@ -49,7 +50,8 @@ async function detail(main, id) {
   const draw = async () => {
     tabs.replaceChildren(...TABS.map(([k, t]) => h('button', { class: 'btn ' + (tab === k ? '' : 'alt'), onclick: () => { tab = k; sessionStorage.setItem('comm_tab', k); draw(); } }, t)));
     body.replaceChildren(h('p', { class: 'muted' }, 'Loading…'));
-    body.replaceChildren(await ({ locations: tLocs, people: tPeople, families: tFams, members: tMems, branding: () => brandingTab(c, reload) })[tab]());
+    if (body.firstChild && body.firstChild.stop) body.firstChild.stop();
+    body.replaceChildren(await ({ locations: tLocs, team: () => teamTab(c, locs.data), people: tPeople, families: tFams, members: tMems, branding: () => brandingTab(c, reload) })[tab]());
   };
 
   const tLocs = async () => {
@@ -62,9 +64,11 @@ async function detail(main, id) {
       const { error } = await sb.from('locations').insert({ community_id: id, code: cd, city: city.value.trim(), taluka: tal.value.trim() || null, district: dist.value.trim() || null, state: st.value.trim() });
       error ? toast(/duplicate/i.test(error.message) ? 'That code is already used' : friendly(error)) : (toast('Location added'), reload());
     };
+    const famPanel = h('div');
+    const showFams = async l => { famPanel.replaceChildren(h('p', { class: 'muted' }, 'Loading…')); const el = await tFams(l.id); famPanel.replaceChildren(h('div', { class: 'card' }, h('div', { class: 'rowhead' }, h('h3', { style: 'margin:0' }, 'Family registry · ' + l.city), h('button', { class: 'btn alt sm', onclick: () => famPanel.replaceChildren() }, 'Close')), h('p', { class: 'muted s' }, 'Families belong to this location. Open one to see its members.')), el); famPanel.scrollIntoView({ behavior: 'smooth' }); };
     return h('div', {}, h('div', { class: 'card list' }, locs.data.length ? locs.data.map(l => h('div', { class: 'item' },
       h('span', {}, h('b', {}, l.code), ' · ', l.city, l.district ? ', ' + l.district : '', ' · ', l.state, h('div', { class: 'muted s' }, 'Last family no. ' + l.family_seq)),
-      h('span', {}, stPill(l.status), ' ', h('button', { class: 'btn alt sm', onclick: async () => { const s = l.status === 'active' ? 'archived' : 'active';
+      h('span', {}, stPill(l.status), ' ', h('button', { class: 'btn alt sm', onclick: () => showFams(l) }, 'Families'), ' ', h('button', { class: 'btn alt sm', onclick: async () => { const s = l.status === 'active' ? 'archived' : 'active';
         if (s === 'archived' && !confirm('Archive this location? Its users lose access. No data is deleted.')) return;
         const { error } = await sb.rpc('location_set_status', { p_id: l.id, p_status: s }); error ? toast(friendly(error)) : reload(); } }, l.status === 'active' ? 'Archive' : 'Restore')))) : h('p', { class: 'muted' }, 'No locations yet.')),
       h('div', { class: 'card' }, h('h3', { style: 'margin-top:0' }, '+ Add location'),
@@ -79,8 +83,8 @@ async function detail(main, id) {
     h('p', {}, h('a', { class: 'btn', href: '#staff' }, 'Add / assign staff')));
 
   const locIds = locs.data.map(l => l.id), codeOf = Object.fromEntries(locs.data.map(l => [l.id, l.code]));
-  const tFams = async () => {
-    const { data, error } = locIds.length ? await sb.from('families').select('id,family_code,status,address,location_id,head_member_id').in('location_id', locIds).order('family_code').limit(300) : { data: [] };
+  const tFams = async (only) => {
+    const { data, error } = locIds.length ? await sb.from('families').select('id,family_code,status,address,location_id,head_member_id').in('location_id', only ? [only] : locIds).order('family_code').limit(300) : { data: [] };
     if (error) return h('p', { class: 'err' }, friendly(error));
     const hid = data.map(f => f.head_member_id).filter(Boolean);
     const hn = hid.length ? (await sb.from('members').select('id,full_name').in('id', hid)).data || [] : [];

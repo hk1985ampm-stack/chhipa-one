@@ -183,3 +183,12 @@ textarea,input,select,button{font-family:inherit}
 textarea{font-size:15px;line-height:1.4}
 .chips .btn .hi{color:inherit;font-size:inherit;margin-left:4px}.chips .btn .en{display:inline}
 button.tile{font:inherit;text-align:left;cursor:pointer}.tile b{font-size:15px}.tile small{color:var(--mu);font-size:12px}
+/* ID card (screen + print share one layout) */
+.idc-wrap{margin:8px auto;overflow:visible;display:flex;justify-content:center;align-items:flex-start}
+.idc{position:relative;flex:none;overflow:hidden;background:#faf8ee;font-family:Helvetica,Arial,"Liberation Sans",sans-serif;transform-origin:top center;box-shadow:0 2px 10px #0003;border-radius:1mm}
+.idc .ide{position:absolute;margin:0;padding:0}.idc .idt{white-space:nowrap;line-height:1;background:none;border:0;border-radius:0;display:block}
+@media print{body.idprint .bar,body.idprint .bnav,body.idprint .noprint{display:none!important}body.idprint main{padding:0!important;max-width:none}body.idprint .idc-wrap{margin:0;height:54mm!important;display:block}body.idprint .idc{transform:none!important;box-shadow:none;border-radius:0}}
+/* Family Card pages (screen + print share one layout) */
+.fc-pages{display:flex;flex-direction:column;align-items:center;gap:10px}.fpw{overflow:hidden;box-shadow:0 2px 10px #0003;background:#faf8ee;flex:none}
+.fpw .idc{box-shadow:none;border-radius:0;overflow:hidden}
+@media print{body.idprint .fc-pages{display:block;gap:0}body.idprint .fpw{width:297mm!important;height:210mm!important;box-shadow:none;page-break-after:always;break-after:page;overflow:hidden}body.idprint .fpw:last-child{page-break-after:auto}body.idprint .fpw .idc{transform:none!important}}

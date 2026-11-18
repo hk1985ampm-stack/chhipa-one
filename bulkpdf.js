@@ -4,6 +4,7 @@ import { brand, logoUrl } from './brand.js';
 import { photoUrl } from './photo.js';
 import { loadPdfLibs, qrPng, load } from './pdf.js';
 import { REL_LABELS } from './options.js';
+import { idSpec, drawPdf, cardParts, measurer, CW, CH } from './idcard.js';
 
 const DG = [13, 50, 30], GO = [180, 140, 40], CR = [250, 248, 238];
 const mobOf = m => { const c = m && m.member_contacts; return (Array.isArray(c) ? c[0] : c)?.mobile || ''; };
@@ -62,21 +63,11 @@ const MAKERS = {
       y = doc.lastAutoTable.finalY + 6; }
     foot(doc, B); return doc; },
   async idcards(fams, o) { const { doc, B } = await newDoc('portrait', 'ID Cards', ''); doc.deletePage(1);
-    const people = []; fams.forEach(f => f.rows.forEach(r => people.push({ f, r, m: r.members }))); const CW = 85.6, CH = 54, mx = 12, my = 10, gx = 6, gy = 3;
+    const { split } = await measurer(); const people = []; fams.forEach(f => f.rows.forEach(r => people.push({ f, r, m: r.members })));
+    const mx = 12, my = 10, gx = 6, gy = 3;
     for (let i = 0; i < people.length; i++) { if (i % 10 === 0) { doc.addPage(); doc.setFillColor(255, 255, 255); doc.rect(0, 0, 210, 297, 'F'); }
       const k = i % 10, x = mx + (k % 2) * (CW + gx), y = my + Math.floor(k / 2) * (CH + gy), { f, r, m } = people[i];
-      doc.setFillColor(...CR); doc.rect(x, y, CW, CH, 'F'); doc.setDrawColor(...GO); doc.setLineWidth(.5); doc.rect(x, y, CW, CH, 'S');
-      doc.setFillColor(...DG); doc.rect(x, y, CW, 11, 'F'); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.text(doc.splitTextToSize(B.header_line1 || B.name || 'CHHIPA JAMAT', CW - 8).slice(0, 2), x + CW / 2, y + 4.5, { align: 'center' });
-      doc.setFontSize(5.5); doc.setTextColor(210, 235, 210); doc.text('MEMBER ID CARD', x + CW / 2, y + 9.5, { align: 'center' });
-      doc.setFillColor(220, 240, 230); doc.rect(x + 3, y + 14, 22, 27, 'F'); let drawn = false;
-      if (o.photos && m.photo_path) { try { const u = await photoUrl(m.photo_path); if (u) { doc.addImage(await dataUrl(u), 'JPEG', x + 3, y + 14, 22, 27, undefined, 'FAST'); drawn = true; } } catch {} }
-      if (!drawn) { doc.setTextColor(...DG); doc.setFontSize(12); doc.text(m.full_name.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase(), x + 14, y + 29, { align: 'center' }); }
-      doc.setTextColor(20, 20, 20); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.text(doc.splitTextToSize(m.full_name, 40).slice(0, 2), x + 28, y + 18);
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(90, 90, 90); doc.text('Member ID', x + 28, y + 26); doc.text('Family ID', x + 28, y + 34);
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(20, 20, 20); doc.text(m.member_code || '—', x + 28, y + 29.5); doc.text(f.family_code || '—', x + 28, y + 37.5);
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(6); doc.setTextColor(90, 90, 90); doc.text((REL_LABELS[r.relation] || r.relation) + ' · ' + f.locations.city, x + 3, y + 46);
-      doc.setFontSize(5.5); doc.text(mobOf(m) || '', x + 3, y + 50);
-      doc.addImage(qrPng('CJBWS|MEMBER|' + (m.member_code || '') + '|ID:' + (f.family_code || '')), 'PNG', x + CW - 21, y + 31, 18, 18, undefined, 'FAST'); }
+      drawPdf(doc, idSpec(await cardParts(m, r.relation, f, !!o.photos), split), x, y); }
     foot(doc, B); return doc; },
   async qrsheet(fams, o) { const { doc, B } = await newDoc('portrait', 'Family QR Sheet', o.place); const cw = 46, ch = 52, cols = 4, x0 = 9, y0 = 28; let n = 0;
     for (const f of fams) { if (n && n % 20 === 0) { doc.addPage(); } const k = n % 20, x = x0 + (k % cols) * (cw + 2), y = y0 + Math.floor(k / cols) * (ch + 3);

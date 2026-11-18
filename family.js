@@ -4,6 +4,7 @@ import { memberForm, selectOther } from './memberform.js';
 import { cached } from './offline.js';
 import { photoUrl, pickPhoto, uploadPhotos } from './photo.js';
 import { familyCardPdf } from './pdf.js';
+import { myLocations } from './core.js';
 const initials = n => (n || '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
 import { optList } from './core.js';
 
@@ -25,7 +26,7 @@ export async function render(main, id) {
   const by = new Map();
   for (const r of ms.data) { if (!r.members) continue; const c = by.get(r.members.id);
     if (!c || (r.is_active && !c.is_active) || (r.is_active === c.is_active && r.created_at > c.created_at)) by.set(r.members.id, r); }
-  const rows = [...by.values()].sort((a, b) => (b.relation === 'head') - (a.relation === 'head') || b.is_active - a.is_active || (a.created_at > b.created_at ? 1 : -1));
+  const rows = [...by.values()].sort((a, b) => (b.relation === 'head') - (a.relation === 'head') || b.is_active - a.is_active || (a.created_at > b.created_at ? 1 : a.created_at < b.created_at ? -1 : (a.members.member_code || a.members.id) > (b.members.member_code || b.members.id) ? 1 : -1));
   const live = r => r.is_active && r.members.status === 'active' && !r.members.removed_at;
   const active = rows.filter(live).length;
   const names = Object.fromEntries(rows.map(r => [r.members.id, r.members.full_name]));
@@ -151,6 +152,13 @@ export async function render(main, id) {
   const ro = !!state.profile.read_only, ownOpen = !ro && !isApprover() && fam.created_by === state.profile.user_id && ['pending', 'rejected'].includes(fam.status) && !offline && !fam.removed_at;
   const canRequest = !ro && !isApprover() && fam.status === 'approved' && !offline && !fam.removed_at;   // agents propose, admin approves
   const direct = isApprover() || ownOpen;
+  const transfer = async () => {
+    const ls = (await myLocations()).filter(l => l.id !== fam.location_id); if (!ls.length) return toast('You have no other location to move this family to');
+    const sel = h('select', {}, ls.map(l => h('option', { value: l.id }, l.city))), why = h('input', { placeholder: 'Reason, e.g. moved house' }), err = h('p', { class: 'err' }), box = h('div', { class: 'card' });
+    box.append(h('h3', {}, 'Transfer to another location'), h('p', { class: 'muted s' }, 'The Family ID stays the same. The move is recorded in the history.'), h('label', {}, 'Move to'), sel, h('label', {}, 'Reason *'), why, err,
+      h('div', { class: 'actions' }, h('button', { class: 'btn alt', onclick: () => box.remove() }, 'Cancel'), h('button', { class: 'btn', onclick: async ev => { ev.target.disabled = true; const { error } = await sb.rpc('family_transfer', { p_family: fam.id, p_to: sel.value, p_reason: why.value }); if (error) { ev.target.disabled = false; return (err.textContent = friendly(error)); } toast('Family transferred'); location.reload(); } }, 'Transfer')));
+    document.querySelector('main').append(box); box.scrollIntoView({ behavior: 'smooth' });
+  };
   const canRemoveFam = !offline && !fam.removed_at && (isApprover() || (fam.created_by === state.profile.user_id && ['draft', 'pending', 'rejected'].includes(fam.status)));
   const isSuper = state.profile.role === 'super_admin';
   const headRow = rows.find(r => r.relation === 'head');
@@ -228,6 +236,7 @@ export async function render(main, id) {
     canEdit ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn alt', onclick: editFam }, 'Edit details'), h('button', { class: 'btn', onclick: addMember }, '+ Add member'), h('button', { class: 'btn alt', onclick: headForm }, 'Change head')) : null,
     !canEdit && (canRequest || ownOpen) ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn alt', onclick: editFam }, direct ? 'Edit details' : 'Request change'), ownOpen ? h('button', { class: 'btn alt', onclick: addMember }, '+ Add member') : null,
       fam.status === 'rejected' && (ownOpen || isApprover()) ? h('button', { class: 'btn', onclick: async () => { const { error } = await sb.rpc('family_resubmit', { p_id: id }); error ? toast(friendly(error)) : (toast('Resubmitted for approval'), reload()); } }, '↻ Fix done · Resubmit') : null) : null,
+    (isApprover() && !offline && !fam.removed_at && fam.status === 'approved') ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn alt', onclick: transfer }, '⇄ Transfer to another location')) : null,
     canRemoveFam ? h('div', { class: 'card actions-card' }, h('button', { class: 'btn bad', onclick: removeFam }, 'Remove family (wrong / test entry)')) : null,
     fam.removed_at ? h('div', { class: 'card dupwarn' }, h('b', {}, 'This family was removed.'), h('p', { class: 'muted' }, fam.removed_reason || ''), h('div', { class: 'actions-card' }, isApprover() ? h('button', { class: 'btn', onclick: () => run(sb.rpc('family_restore', { p_id: id }), 'Family restored') }, 'Restore family') : null, isSuper ? h('button', { class: 'btn bad', onclick: purgeFam }, 'Delete permanently') : null)) : null,
     headGone ? h('div', { class: 'card dupwarn' }, h('b', {}, 'The family head has passed away.'), h('p', { class: 'muted' }, 'Choose the new head (the wife is suggested).'), h('button', { class: 'btn', onclick: headForm }, 'Choose new head')) : null,
@@ -240,6 +249,7 @@ export async function render(main, id) {
           h('div', { class: 'muted', style: 'font-size:14px' }, [m.gender, ageText(m), m.marital_status, m.education, m.occupation, mobile(m),
             m.status === 'deceased' ? 'Deceased' : gone ? 'Removed' + (m.removed_reason ? ': ' + m.removed_reason : '') : hist ? (REASON[r.reason] || 'Historical') : null].filter(Boolean).join(' · ')))),
         (adm || medit) && !fam.removed_at ? h('div', { class: 'mem-btns' },
+          !offline ? h('a', { class: 'btn alt sm', href: '#idcard/' + r.members.id }, '🪪 ID Card') : null,
           medit ? h('button', { class: 'btn alt sm', onclick: () => editMember(r) }, direct ? '✏️ Edit' : '✏️ Request edit') : null,
           !gone && adm ? h('button', { class: 'btn alt sm', onclick: () => pickPhoto(m.id, reload) }, '📷 Photo') : null,
           !gone && live(r) && r.relation !== 'head' ? h('button', { class: 'btn alt sm bad', onclick: () => removeMem(m) }, 'Remove') : null,

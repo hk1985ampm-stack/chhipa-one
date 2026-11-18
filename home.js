@@ -2,7 +2,7 @@ import { sb, h, hi, state, ROLE_LABEL } from './core.js';
 import { lang, UR } from './i18n.js';
 import { logoImg, brandName, brandSub, brand } from './brand.js';
 
-const APP_VERSION = 'v18 · Welfare, Community & Language';
+const APP_VERSION = 'v19 · Team, Transfer, Registration & Aligned Cards';
 const tile = (href, en, hindi, soon, badge) =>
   h(soon ? 'div' : 'a', { class: 'tile' + (soon ? ' soon' : ''), href: soon ? null : href },
     h('span', { class: 'en' }, en), h('span', { class: 'hi' }, lang.v === 'ur' ? (UR[en] || hindi) : hindi), soon ? h('span', { class: 'tag' }, 'Coming in Phase ' + soon) : null, badge ? h('span', { class: 'badge' }, String(badge)) : null);
@@ -25,7 +25,7 @@ export async function render(main) {
     ...(appr ? [['office', ['🏢 ', hi('Office', 'कार्यालय')], [
       tile('#registry/pending', 'Pending Approvals', 'लंबित स्वीकृति', false, pend),
       sup ? tile('#communities', 'Communities', 'समुदाय') : null, sup ? tile('#staff', 'Staff & Agents', 'स्टाफ / एजेंट') : null,
-      tile('#activity', 'Agent Activity', 'एजेंट गतिविधि'), tile('#scan', 'Scan QR', 'क्यू आर स्कैन'), tile('#reminders', 'Birthdays & WhatsApp', 'रिमाइंडर'), (sup || p.can_export || ['location_admin'].includes(p.role)) ? tile('#print', 'Print Center', 'प्रिंट सेंटर') : null, tile('#excel', 'Excel Import / Export', 'एक्सेल'), tile('#tools', 'Duplicates & Bulk Edit', 'डुप्लिकेट / बल्क एडिट'), sup ? tile('#lists', 'Dropdown Lists', 'ड्रॉपडाउन सूची') : null, sup ? tile('#backup', 'Backup', 'बैकअप') : null, sup ? tile('#audit', 'Audit Log', 'ऑडिट लॉग') : null]]] : [])];
+      tile('#activity', 'Agent Activity', 'एजेंट गतिविधि'), tile('#scan', 'Scan QR', 'क्यू आर स्कैन'), tile('#reglinks', 'Registration Links', 'पंजीकरण लिंक'), tile('#reminders', 'Birthdays & WhatsApp', 'रिमाइंडर'), (sup || p.can_export || ['location_admin'].includes(p.role)) ? tile('#print', 'Print Center', 'प्रिंट सेंटर') : null, tile('#excel', 'Excel Import / Export', 'एक्सेल'), tile('#tools', 'Duplicates & Bulk Edit', 'डुप्लिकेट / बल्क एडिट'), sup ? tile('#lists', 'Dropdown Lists', 'ड्रॉपडाउन सूची') : null, sup ? tile('#backup', 'Backup', 'बैकअप') : null, sup ? tile('#audit', 'Audit Log', 'ऑडिट लॉग') : null]]] : [])];
   let cur = sessionStorage.getItem('home_tab'); if (!SECTIONS.some(s => s[0] === cur)) cur = 'families';
   const body = h('div'), tabs = h('div', { class: 'chips' });
   const draw = () => {

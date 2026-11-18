@@ -21,7 +21,7 @@ export function qrPng(text) {
 }
 
 // Same landscape A4 Family Card as the previous app: cream page, gold border, green header, QR, stamp, members table.
-export async function familyCardPdf(fam, rows, ageOf = ageText) {
+export async function familyCardPdfClassic(fam, rows, ageOf = ageText) {
   await load('jspdf.min.js'); await load('jspdf-autotable.min.js'); await load('qrcode.min.js');
   const head = rows.find(r => r.relation === 'head'), hm = head && head.members;
   const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -73,4 +73,13 @@ export async function familyCardPdf(fam, rows, ageOf = ageText) {
   for (let i = 1; i <= pages; i++) { doc.setPage(i); doc.setFillColor(...DG); doc.rect(2, H - 10, W - 4, 8, 'F'); doc.setDrawColor(...GO); doc.setLineWidth(.3); doc.line(2, H - 10, W - 2, H - 10);
     doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(10); doc.setTextColor(255, 255, 255); T(quote, W / 2, H - 5, { align: 'center' }); }
   doc.save('FamilyCard_' + safe(hm && hm.full_name) + '.pdf');
+}
+
+// Current Family Card PDF: draws the shared layout from fcard.js (identical to the on-screen View & Print card).
+export async function familyCardPdf(fam, rows, ageOf = ageText) {
+  const { famParts, famSpec, FW, FH } = await import('./fcard.js'); const { measurer, drawPdf } = await import('./idcard.js');
+  const m = await measurer(), P = await famParts(fam, rows), pages = famSpec(fam, rows, P, m, ageOf);
+  const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  pages.forEach((S, i) => { if (i) doc.addPage(); drawPdf(doc, S); });
+  doc.save('FamilyCard_' + safe(P.hm && P.hm.full_name) + '.pdf');
 }
